@@ -20,9 +20,13 @@
 (define-constant ERR_INVALID_TOKEN (err u112))
 (define-constant ERR_INSUFFICIENT_BALANCE (err u113))
 
-;; Token type constants
+;; Token type constant
 (define-constant TOKEN_TYPE_STX "STX")
-(define-constant TOKEN_TYPE_SIP010 "SIP010")
+
+;; Limits and constraints for security
+(define-constant MAX_DURATION u31536000) ;; 1 year in seconds
+(define-constant MIN_DURATION u60) ;; 1 minute in seconds
+(define-constant MIN_AMOUNT u1000) ;; Minimum 1000 microSTX (0.001 STX)
 
 ;; ===================================
 ;; Data Variables & Maps
@@ -45,9 +49,7 @@
         is-paused: bool,
         paused-at: uint,
         total-paused-duration: uint,
-        created-at-block: uint,
-        token-type: (string-ascii 10),
-        token-contract: (optional principal)
+        created-at-block: uint
     }
 )
 
@@ -64,26 +66,13 @@
 )
 
 ;; ===================================
-;; SIP-010 Fungible Token Trait
 ;; ===================================
-
-(define-trait sip010-ft-trait
-    (
-        (transfer (uint principal principal (optional (buff 34))) (response bool uint))
-        (get-name () (response (string-ascii 32) uint))
-        (get-symbol () (response (string-ascii 32) uint))
-        (get-decimals () (response uint uint))
-        (get-balance (principal) (response uint uint))
-        (get-total-supply () (response uint uint))
-        (get-token-uri () (response (optional (string-utf8 256)) uint))
-    )
-)
 
 ;; ===================================
 ;; Events (using print statements)
 ;; ===================================
 
-(define-private (emit-stream-created (stream-id uint) (sender principal) (recipient principal) (amount uint) (duration uint) (token-type (string-ascii 10)))
+(define-private (emit-stream-created (stream-id uint) (sender principal) (recipient principal) (amount uint) (duration uint))
     (print {
         event: "stream-created",
         stream-id: stream-id,
@@ -91,7 +80,7 @@
         recipient: recipient,
         amount: amount,
         duration: duration,
-        token-type: token-type,
+        token-type: TOKEN_TYPE_STX,
         timestamp: stacks-block-time
     })
 )
@@ -153,15 +142,15 @@
             (stream-id (+ (var-get stream-nonce) u1))
             (current-time (get-current-time))
             (end-time (+ current-time duration))
+            (contract-address (as-contract? () tx-sender))
         )
         ;; Validations
         (asserts! (not (is-eq recipient tx-sender)) ERR_INVALID_RECIPIENT)
         (asserts! (> token-amount u0) ERR_INVALID_AMOUNT)
         (asserts! (> duration u0) ERR_INVALID_DURATION)
         
-        ;; Note: Token transfers would require sender to manually send STX to contract
-        ;; Contract tracks the stream but doesn't hold tokens in this version
-        ;; For production use, sender should transfer tokens separately
+            ;; Transfer STX from sender to contract (escrow)
+        (unwrap! (stx-transfer? token-amount tx-sender (unwrap-panic contract-address)) ERR_TRANSFER_FAILED)
         
         ;; Create stream record
         (map-set streams
@@ -177,9 +166,7 @@
                 is-paused: false,
                 paused-at: u0,
                 total-paused-duration: u0,
-                created-at-block: stacks-block-height,
-                token-type: TOKEN_TYPE_STX,
-                token-contract: none
+                created-at-block: stacks-block-height
             }
         )
         
@@ -191,63 +178,7 @@
         (var-set stream-nonce stream-id)
         
         ;; Emit event
-        (emit-stream-created stream-id tx-sender recipient token-amount duration TOKEN_TYPE_STX)
-        
-        (ok stream-id)
-    )
-)
-
-;; Create a new SIP-010 token stream
-(define-public (create-sip010-stream 
-    (recipient principal) 
-    (token-amount uint) 
-    (duration uint)
-    (token-contract <sip010-ft-trait>))
-    (let
-        (
-            (stream-id (+ (var-get stream-nonce) u1))
-            (current-time (get-current-time))
-            (end-time (+ current-time duration))
-            (token-principal (contract-of token-contract))
-        )
-        ;; Validations
-        (asserts! (not (is-eq recipient tx-sender)) ERR_INVALID_RECIPIENT)
-        (asserts! (> token-amount u0) ERR_INVALID_AMOUNT)
-        (asserts! (> duration u0) ERR_INVALID_DURATION)
-        
-        ;; Note: Token transfers would require sender to manually send tokens to contract
-        ;; Contract tracks the stream but doesn't hold tokens in this version
-        ;; For production use, sender should transfer tokens separately
-        
-        ;; Create stream record
-        (map-set streams
-            { stream-id: stream-id }
-            {
-                sender: tx-sender,
-                recipient: recipient,
-                token-amount: token-amount,
-                start-time: current-time,
-                end-time: end-time,
-                withdrawn-amount: u0,
-                is-cancelled: false,
-                is-paused: false,
-                paused-at: u0,
-                total-paused-duration: u0,
-                created-at-block: stacks-block-height,
-                token-type: TOKEN_TYPE_SIP010,
-                token-contract: (some token-principal)
-            }
-        )
-        
-        ;; Update stream tracking
-        (add-stream-to-sender tx-sender stream-id)
-        (add-stream-to-recipient recipient stream-id)
-        
-        ;; Increment nonce
-        (var-set stream-nonce stream-id)
-        
-        ;; Emit event
-        (emit-stream-created stream-id tx-sender recipient token-amount duration TOKEN_TYPE_SIP010)
+        (emit-stream-created stream-id tx-sender recipient token-amount duration)
         
         (ok stream-id)
     )
@@ -311,16 +242,15 @@
         (let
             (
                 (recipient (get recipient stream-data))
-                (token-type (get token-type stream-data))
                 (available-balance (unwrap! (get-available-balance stream-id) ERR_NO_TOKENS_TO_WITHDRAW))
             )
             ;; Only recipient can withdraw
             (asserts! (is-eq tx-sender recipient) ERR_UNAUTHORIZED)
             (asserts! (> available-balance u0) ERR_NO_TOKENS_TO_WITHDRAW)
             (asserts! (not (get is-paused stream-data)) ERR_STREAM_PAUSED)
-            (asserts! (is-eq token-type TOKEN_TYPE_STX) ERR_INVALID_TOKEN)
+            (asserts! (not (get is-cancelled stream-data)) ERR_STREAM_ENDED)
             
-            ;; Update withdrawn amount
+            ;; Update withdrawn amount BEFORE transfer (reentrancy protection)
             (map-set streams
                 { stream-id: stream-id }
                 (merge stream-data {
@@ -328,47 +258,13 @@
                 })
             )
             
-            ;; Note: Actual token transfer should be done manually by sender to recipient
-            ;; Contract tracks withdrawal but doesn't transfer tokens in this version
-            
-            ;; Emit event
-            (emit-withdrawal stream-id recipient available-balance)
-            
-            (ok available-balance)
-        )
-        ERR_STREAM_NOT_FOUND
-    )
-)
-
-;; Withdraw available SIP-010 tokens from stream
-(define-public (withdraw-from-sip010-stream (stream-id uint) (token-contract <sip010-ft-trait>))
-    (match (map-get? streams { stream-id: stream-id })
-        stream-data
-        (let
-            (
-                (recipient (get recipient stream-data))
-                (token-type (get token-type stream-data))
-                (token-principal (contract-of token-contract))
-                (stored-token (unwrap! (get token-contract stream-data) ERR_INVALID_TOKEN))
-                (available-balance (unwrap! (get-available-balance stream-id) ERR_NO_TOKENS_TO_WITHDRAW))
+            ;; Transfer STX from contract to recipient using Clarity 4 as-contract?
+            (unwrap! 
+                (as-contract? ((with-stx available-balance))
+                    (unwrap! (stx-transfer? available-balance tx-sender recipient) ERR_TRANSFER_FAILED)
+                ) 
+                ERR_TRANSFER_FAILED
             )
-            ;; Validations
-            (asserts! (is-eq tx-sender recipient) ERR_UNAUTHORIZED)
-            (asserts! (> available-balance u0) ERR_NO_TOKENS_TO_WITHDRAW)
-            (asserts! (not (get is-paused stream-data)) ERR_STREAM_PAUSED)
-            (asserts! (is-eq token-type TOKEN_TYPE_SIP010) ERR_INVALID_TOKEN)
-            (asserts! (is-eq token-principal stored-token) ERR_INVALID_TOKEN)
-            
-            ;; Update withdrawn amount
-            (map-set streams
-                { stream-id: stream-id }
-                (merge stream-data {
-                    withdrawn-amount: (+ (get withdrawn-amount stream-data) available-balance)
-                })
-            )
-            
-            ;; Note: Actual token transfer should be done manually by sender to recipient
-            ;; Contract tracks withdrawal but doesn't transfer tokens in this version
             
             ;; Emit event
             (emit-withdrawal stream-id recipient available-balance)
@@ -387,67 +283,51 @@
             (
                 (sender (get sender stream-data))
                 (recipient (get recipient stream-data))
-                (token-type (get token-type stream-data))
                 (total-amount (get token-amount stream-data))
                 (withdrawn (get withdrawn-amount stream-data))
                 (available-balance (unwrap! (get-available-balance stream-id) ERR_NO_TOKENS_TO_WITHDRAW))
-                (remaining-amount (- total-amount withdrawn))
+                (vested-not-withdrawn available-balance)
+                (remaining-amount (- (- total-amount withdrawn) vested-not-withdrawn))
             )
             ;; Only sender can cancel
             (asserts! (is-eq tx-sender sender) ERR_UNAUTHORIZED)
             (asserts! (not (get is-cancelled stream-data)) ERR_STREAM_ENDED)
             
-            ;; Mark as cancelled
+            ;; Mark as cancelled first
             (map-set streams
                 { stream-id: stream-id }
-                (merge stream-data { is-cancelled: true })
+                (merge stream-data { 
+                    is-cancelled: true,
+                    withdrawn-amount: (+ withdrawn vested-not-withdrawn)
+                })
             )
             
-            ;; Note: Refund should be handled manually by sender
-            ;; Contract tracks cancellation but doesn't transfer tokens in this version
+            ;; Transfer vested tokens to recipient and refund to sender using Clarity 4 as-contract?
+            ;; Use as-contract? with total allowance for both transfers
+            (unwrap! 
+                (as-contract? ((with-stx (+ vested-not-withdrawn remaining-amount)))
+                    (begin
+                        ;; Transfer vested tokens to recipient (if any)
+                        (if (> vested-not-withdrawn u0)
+                            (unwrap! (stx-transfer? vested-not-withdrawn tx-sender recipient) ERR_TRANSFER_FAILED)
+                            true
+                        )
+                        
+                        ;; Refund remaining tokens to sender
+                        (if (> remaining-amount u0)
+                            (unwrap! (stx-transfer? remaining-amount tx-sender sender) ERR_TRANSFER_FAILED)
+                            true
+                        )
+                        true
+                    )
+                ) 
+                ERR_TRANSFER_FAILED
+            )
             
             ;; Emit event
             (emit-stream-cancelled stream-id sender)
             
-            (ok { withdrawn: withdrawn, refunded: remaining-amount })
-        )
-        ERR_STREAM_NOT_FOUND
-    )
-)
-
-;; Cancel a SIP-010 stream and return remaining tokens to sender
-(define-public (cancel-sip010-stream (stream-id uint) (token-contract <sip010-ft-trait>))
-    (match (map-get? streams { stream-id: stream-id })
-        stream-data
-        (let
-            (
-                (sender (get sender stream-data))
-                (token-type (get token-type stream-data))
-                (token-principal (contract-of token-contract))
-                (stored-token (unwrap! (get token-contract stream-data) ERR_INVALID_TOKEN))
-                (total-amount (get token-amount stream-data))
-                (withdrawn (get withdrawn-amount stream-data))
-                (remaining-amount (- total-amount withdrawn))
-            )
-            ;; Validations
-            (asserts! (is-eq tx-sender sender) ERR_UNAUTHORIZED)
-            (asserts! (not (get is-cancelled stream-data)) ERR_STREAM_ENDED)
-            (asserts! (is-eq token-type TOKEN_TYPE_SIP010) ERR_INVALID_TOKEN)
-            (asserts! (is-eq token-principal stored-token) ERR_INVALID_TOKEN)
-            
-            ;; Mark as cancelled
-            (map-set streams
-                { stream-id: stream-id }
-                (merge stream-data { is-cancelled: true })
-            )
-            
-            ;; Note: Refund should be handled manually by sender
-            ;; Contract tracks cancellation but doesn't transfer tokens in this version
-            
-            ;; Emit event
-            (emit-stream-cancelled stream-id sender)
-            
-            (ok { withdrawn: withdrawn, refunded: remaining-amount })
+            (ok { withdrawn: vested-not-withdrawn, refunded: remaining-amount })
         )
         ERR_STREAM_NOT_FOUND
     )
