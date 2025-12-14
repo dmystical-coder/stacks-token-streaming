@@ -11,7 +11,7 @@ plan:
         - contract-publish:
             contract-name: stream-manager
             expected-sender: ST3R3SX667CWE61113X23CAQ03SZXXZ3D8C2MR7YY
-            cost: 220040
+            cost: 218000
             path: contracts/stream-manager.clar
             anchor-block-only: true
             clarity-version: 4
