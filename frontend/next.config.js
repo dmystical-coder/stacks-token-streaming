@@ -7,10 +7,13 @@ const nextConfig = {
     // serverActions: true, // enabled by default in 14+
   },
   // Explicitly handle the server external packages
-  serverExternalPackages: ['thread-stream', 'pino', 'pino-pretty'],
+  serverExternalPackages: ["thread-stream", "pino", "pino-pretty"],
   // Avoid issues with certain packages
-  transpilePackages: ['@stacks/connect', '@stacks/network', '@stacks/transactions'],
+  transpilePackages: [
+    "@stacks/connect",
+    "@stacks/network",
+    "@stacks/transactions",
+  ],
 };
 
 module.exports = nextConfig;
-
