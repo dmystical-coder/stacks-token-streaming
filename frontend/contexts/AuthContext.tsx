@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { connect, isConnected, disconnect, getLocalStorage } from '@stacks/connect';
-import { NETWORK_NAME } from '@/lib/stacks';
+import { NETWORK_NAME, NETWORK } from '@/lib/stacks';
 
 interface AuthContextType {
   isSignedIn: boolean;
@@ -14,6 +14,10 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Determine expected address prefix based on network
+const IS_MAINNET = NETWORK === 'mainnet';
+const EXPECTED_PREFIX = IS_MAINNET ? 'SP' : 'ST';
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isSignedIn, setIsSignedIn] = useState(false);
   const [userAddress, setUserAddress] = useState<string | null>(null);
@@ -21,7 +25,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchBnsName = async (address: string) => {
     try {
-      const response = await fetch(`https://api.bnsv2.com/testnet/names/address/${address}/valid`);
+      // Use the appropriate BNS API endpoint based on network
+      const bnsNetwork = IS_MAINNET ? 'mainnet' : 'testnet';
+      const response = await fetch(`https://api.bnsv2.com/${bnsNetwork}/names/address/${address}/valid`);
       const data = await response.json();
       if (data.names && data.names.length > 0) {
         setBnsName(data.names[0].full_name);
@@ -39,13 +45,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const storageData = getLocalStorage();
       if (storageData && storageData.addresses && storageData.addresses.stx && storageData.addresses.stx.length > 0) {
         const address = storageData.addresses.stx[0].address;
-        // Verify address matches testnet (starts with ST)
-        if (address.startsWith('ST')) {
+        // Verify address matches the expected network prefix
+        if (address.startsWith(EXPECTED_PREFIX)) {
           setIsSignedIn(true);
           setUserAddress(address);
           fetchBnsName(address);
         } else {
-          // If address is not testnet, sign out
+          // If address doesn't match expected network, sign out
+          console.warn(`Address ${address} does not match expected network (${NETWORK}). Expected prefix: ${EXPECTED_PREFIX}`);
           disconnect();
           setIsSignedIn(false);
           setUserAddress(null);
