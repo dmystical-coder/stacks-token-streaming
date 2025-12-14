@@ -16,11 +16,12 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Token Streaming - Stream tokens over time",
-  description: "Stream STX and SIP-010 tokens with vesting, pause/resume, and more on Stacks blockchain",
+  description:
+    "Stream STX with vesting, pause/resume, and more on Stacks blockchain",
 };
 
 // Prevent SSR for this layout since we use browser-only libraries
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 export default function RootLayout({
   children,
@@ -33,9 +34,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <AuthProvider>
-          <ToastProvider>
-            {children}
-          </ToastProvider>
+          <ToastProvider>{children}</ToastProvider>
         </AuthProvider>
       </body>
     </html>
