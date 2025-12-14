@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useEffect, useCallback } from 'react';
 import { NETWORK_URL } from '@/lib/stacks';
 
@@ -57,4 +59,3 @@ export function useWalletData(address: string | null) {
     refresh: fetchData
   };
 }
-
