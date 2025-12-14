@@ -223,7 +223,7 @@ export default function Home() {
   }, [streams]);
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-50 font-sans">
+    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-50 font-sans w-full overflow-x-hidden">
       {/* Header */}
       <header className="sticky top-0 z-40 w-full border-b border-zinc-200 bg-white/80 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/80">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
@@ -245,7 +245,7 @@ export default function Home() {
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8 max-w-7xl overflow-x-hidden">
+      <main className="container mx-auto px-4 py-8 max-w-7xl w-full">
         {!isSignedIn ? (
           <div className="flex flex-col items-center justify-center py-20 sm:py-32 animate-in fade-in slide-in-from-bottom-4 duration-700 px-4 text-center">
             <div className="bg-blue-50 dark:bg-blue-900/20 p-6 rounded-full mb-8">
@@ -264,9 +264,9 @@ export default function Home() {
             </div>
           </div>
         ) : (
-          <div className="space-y-8 animate-in fade-in duration-500">
+          <div className="space-y-8 animate-in fade-in duration-500 w-full">
             <Tabs defaultValue="dashboard" className="w-full">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4 w-full">
                 <TabsList className="bg-zinc-100 dark:bg-zinc-800 p-1 w-full sm:w-auto grid grid-cols-2 sm:flex">
                   <TabsTrigger value="dashboard" className="px-4">
                     <LayoutDashboard className="w-4 h-4 mr-2" />
@@ -288,7 +288,7 @@ export default function Home() {
                 </Button>
               </div>
 
-              <TabsContent value="dashboard" className="space-y-8 mt-0">
+              <TabsContent value="dashboard" className="space-y-8 mt-0 w-full">
                 {/* Dashboard Stats */}
                 <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
                   <Card>
@@ -345,7 +345,9 @@ export default function Home() {
                   <div className="w-full overflow-x-auto pb-2 md:pb-0">
                     <Tabs
                       value={filter}
-                      onValueChange={(v: string) => setFilter(v as StreamFilter)}
+                      onValueChange={(v: string) =>
+                        setFilter(v as StreamFilter)
+                      }
                       className="w-full md:w-auto min-w-max"
                     >
                       <TabsList>
@@ -417,7 +419,7 @@ export default function Home() {
                 )}
               </TabsContent>
 
-              <TabsContent value="wallet" className="mt-0">
+              <TabsContent value="wallet" className="mt-0 w-full">
                 <WalletView />
               </TabsContent>
             </Tabs>

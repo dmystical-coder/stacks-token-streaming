@@ -56,8 +56,8 @@ export function WalletView() {
   if (!userAddress) return null;
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="space-y-6 w-full max-w-full">
+      <div className="flex justify-between items-center w-full">
         <h2 className="text-2xl font-bold">Wallet Overview</h2>
         <Button 
           variant="outline" 
@@ -71,14 +71,14 @@ export function WalletView() {
         </Button>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-6 grid-cols-1 md:grid-cols-2 w-full">
         {/* Balance Card */}
-        <Card className="md:col-span-2 lg:col-span-1">
-          <CardHeader>
+        <Card className="h-full w-full overflow-hidden">
+          <CardHeader className="p-4 sm:p-6">
             <CardTitle>Total Balance</CardTitle>
             <CardDescription>Available STX in your wallet</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0">
             <div className="flex flex-col gap-4">
               <div className="flex flex-wrap items-baseline gap-2">
                 <span className="text-3xl sm:text-4xl font-bold break-all">
@@ -87,8 +87,9 @@ export function WalletView() {
                 <span className="text-zinc-500 text-lg">STX</span>
               </div>
               
-              <div className="flex items-center gap-2 p-2 bg-zinc-100 dark:bg-zinc-900 rounded-lg w-full sm:w-fit max-w-full">
-                <span className="text-sm font-mono text-zinc-600 dark:text-zinc-400 truncate flex-1 sm:flex-initial">
+              {/* Address Container */}
+              <div className="flex items-center gap-2 p-2 bg-zinc-100 dark:bg-zinc-900 rounded-lg w-full max-w-full overflow-hidden">
+                <span className="text-sm font-mono text-zinc-600 dark:text-zinc-400 truncate flex-1 min-w-0">
                   {userAddress}
                 </span>
                 <button 
@@ -103,12 +104,12 @@ export function WalletView() {
         </Card>
 
         {/* Stats Card */}
-        <Card className="md:col-span-2 lg:col-span-1">
-          <CardHeader>
+        <Card className="h-full w-full overflow-hidden">
+          <CardHeader className="p-4 sm:p-6">
             <CardTitle>Activity Stats</CardTitle>
             <CardDescription>Lifetime wallet activity</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="p-4 rounded-lg bg-green-50 dark:bg-green-900/10 border border-green-100 dark:border-green-900/30">
                 <div className="flex items-center gap-2 mb-2 text-green-700 dark:text-green-400">
@@ -135,12 +136,12 @@ export function WalletView() {
       </div>
 
       {/* Transaction History */}
-      <Card>
-        <CardHeader>
+      <Card className="w-full overflow-hidden">
+        <CardHeader className="p-4 sm:p-6">
           <CardTitle>Recent Activity</CardTitle>
           <CardDescription>Your recent transactions</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0">
           {loading && !transactions.length ? (
             <div className="flex justify-center py-8">
               <Loader2 className="w-8 h-8 animate-spin text-zinc-400" />
@@ -159,7 +160,7 @@ export function WalletView() {
                         : "bg-white border-zinc-100 dark:bg-zinc-900/50 dark:border-zinc-800"
                     )}
                   >
-                    <div className="flex items-start sm:items-center gap-4">
+                    <div className="flex items-start sm:items-center gap-4 min-w-0">
                       <div className={cn(
                         "p-2 rounded-full shrink-0",
                         tx.tx_status === 'success' ? "bg-green-100 text-green-600 dark:bg-green-900/30" : "bg-red-100 text-red-600 dark:bg-red-900/30"
@@ -170,9 +171,9 @@ export function WalletView() {
                           <RefreshCw className="w-4 h-4" />
                         )}
                       </div>
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <div className="font-medium flex items-center gap-2 flex-wrap">
-                          <span className="truncate max-w-[200px] sm:max-w-full">{getTxLabel(tx)}</span>
+                          <span className="truncate max-w-[150px] sm:max-w-[300px] block">{getTxLabel(tx)}</span>
                           {isContract && (
                             <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 shrink-0">
                               Contract
@@ -185,7 +186,7 @@ export function WalletView() {
                       </div>
                     </div>
                     
-                    <div className="flex justify-end w-full sm:w-auto">
+                    <div className="flex justify-end w-full sm:w-auto mt-2 sm:mt-0">
                       <a 
                         href={`https://explorer.hiro.so/txid/${tx.tx_id}?chain=mainnet`}
                         target="_blank"
