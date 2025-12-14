@@ -8,6 +8,7 @@ export function useStreamEvents(address: string | null, onUpdate: () => void) {
 
     let client: any;
     let sub: any;
+    let isSubscribed = true;
 
     const connect = async () => {
       // Convert https -> wss
@@ -16,6 +17,11 @@ export function useStreamEvents(address: string | null, onUpdate: () => void) {
       try {
         client = await connectWebSocketClient(wsUrl);
         
+        if (!isSubscribed) {
+          // Component unmounted before connection completed
+          return;
+        }
+        
         // Subscribe to transactions involving the user's address
         sub = await client.subscribeAddressTransactions(address, (event: any) => {
           console.log('Transaction event received:', event);
@@ -23,17 +29,23 @@ export function useStreamEvents(address: string | null, onUpdate: () => void) {
           onUpdate();
         });
         
-        console.log('Connected to Stacks WebSocket for real-time updates');
+        console.log('✓ Connected to Stacks WebSocket for real-time updates');
       } catch (error) {
-        console.error('WebSocket connection failed:', error);
+        // WebSocket connection is optional - app works fine without it
+        // Users can manually refresh to see updates
+        console.warn('WebSocket unavailable - real-time updates disabled. Use refresh button for updates.');
+        // Don't log the full error as it clutters the console
       }
     };
 
     connect();
 
     return () => {
+      isSubscribed = false;
       if (sub) {
-        sub.unsubscribe().catch((err: any) => console.error('Error unsubscribing:', err));
+        sub.unsubscribe().catch(() => {
+          // Silently fail - cleanup errors don't matter
+        });
       }
     };
   }, [address, onUpdate]);
