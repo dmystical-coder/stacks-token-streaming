@@ -119,34 +119,66 @@ export default function Home() {
           if (innerValue && innerValue.value) {
             const stream = innerValue.value;
             
-            // console.log(`Stream ${i} fields:`, stream);
+            // Debug: Log the entire stream structure
+            console.log(`Stream ${i} full structure:`, JSON.stringify(stream, null, 2));
             
-            // Log for debugging visibility
-            // console.log(`Stream ${i} sender: ${stream.sender.value}, recipient: ${stream.recipient.value}, user: ${userAddress}`);
+            // Check if stream is actually an object
+            if (!stream || typeof stream !== 'object') {
+              console.warn(`Stream ${i} has invalid structure (not an object):`, stream);
+              continue;
+            }
+            
+            // Add validation to ensure all required fields exist
+            const requiredFields = [
+              'sender', 'recipient', 'token-amount', 'start-time', 'end-time',
+              'withdrawn-amount', 'is-cancelled', 'is-paused', 'paused-at',
+              'total-paused-duration', 'created-at-block'
+            ];
+            
+            const missingFields = requiredFields.filter(field => !stream[field]);
+            if (missingFields.length > 0) {
+              console.warn(`Stream ${i} is missing fields:`, missingFields);
+              console.log(`Stream ${i} available fields:`, Object.keys(stream));
+              continue;
+            }
+            
+            // Validate that fields have the expected .value property
+            const invalidFields = requiredFields.filter(field => 
+              stream[field] && typeof stream[field] === 'object' && !('value' in stream[field])
+            );
+            if (invalidFields.length > 0) {
+              console.warn(`Stream ${i} has fields without .value:`, invalidFields);
+              continue;
+            }
             
             // Only show streams where user is sender or recipient
             if (
-              stream.sender.value === userAddress ||
-              stream.recipient.value === userAddress
+              stream.sender?.value === userAddress ||
+              stream.recipient?.value === userAddress
             ) {
-              loadedStreams.push({
-                id: i,
-                data: {
-                  sender: stream.sender.value,
-                  recipient: stream.recipient.value,
-                  tokenAmount: Number(stream['token-amount'].value),
-                  startTime: Number(stream['start-time'].value),
-                  endTime: Number(stream['end-time'].value),
-                  withdrawnAmount: Number(stream['withdrawn-amount'].value),
-                  isCancelled: stream['is-cancelled'].value,
-                  isPaused: stream['is-paused'].value,
-                  pausedAt: Number(stream['paused-at'].value),
-                  totalPausedDuration: Number(stream['total-paused-duration'].value),
-                  createdAtBlock: Number(stream['created-at-block'].value),
-                  tokenType: stream['token-type'].value,
-                  tokenContract: stream['token-contract'].value || null,
-                },
-              });
+              try {
+                loadedStreams.push({
+                  id: i,
+                  data: {
+                    sender: stream.sender.value,
+                    recipient: stream.recipient.value,
+                    tokenAmount: Number(stream['token-amount'].value),
+                    startTime: Number(stream['start-time'].value),
+                    endTime: Number(stream['end-time'].value),
+                    withdrawnAmount: Number(stream['withdrawn-amount'].value),
+                    isCancelled: stream['is-cancelled'].value,
+                    isPaused: stream['is-paused'].value,
+                    pausedAt: Number(stream['paused-at'].value),
+                    totalPausedDuration: Number(stream['total-paused-duration'].value),
+                    createdAtBlock: Number(stream['created-at-block'].value),
+                    tokenType: 'STX', // This contract only supports STX
+                    tokenContract: null, // No token contract for STX
+                  },
+                });
+              } catch (parseError) {
+                console.error(`Error parsing stream ${i}:`, parseError);
+                console.log('Stream data that caused error:', stream);
+              }
             }
           }
         } catch (error) {
