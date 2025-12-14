@@ -3,7 +3,18 @@
 import { useState } from 'react';
 import { Button } from './ui/button';
 import { useStreamContract } from '@/hooks/useStreamContract';
-import { X } from 'lucide-react';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from './ui/dialog';
+import { Loader2, Plus, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface CreateStreamModalProps {
   isOpen: boolean;
@@ -18,13 +29,25 @@ export function CreateStreamModal({ isOpen, onClose, onSuccess }: CreateStreamMo
   const [hours, setHours] = useState('1');
   const [minutes, setMinutes] = useState('0');
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
   const { createStream } = useStreamContract();
 
-  if (!isOpen) return null;
+  const validate = () => {
+    const newErrors: { [key: string]: string } = {};
+    if (!recipient.startsWith('S')) newErrors.recipient = 'Invalid Stacks address';
+    if (!amount || parseFloat(amount) <= 0) newErrors.amount = 'Amount must be greater than 0';
+    if (parseInt(days) === 0 && parseInt(hours) === 0 && parseInt(minutes) === 0) {
+      newErrors.duration = 'Duration must be at least 1 minute';
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validate()) return;
+
     setLoading(true);
 
     try {
@@ -43,6 +66,7 @@ export function CreateStreamModal({ isOpen, onClose, onSuccess }: CreateStreamMo
       setDays('0');
       setHours('1');
       setMinutes('0');
+      setErrors({});
     } catch (error) {
       console.error('Error creating stream:', error);
     } finally {
@@ -51,111 +75,131 @@ export function CreateStreamModal({ isOpen, onClose, onSuccess }: CreateStreamMo
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-zinc-900 rounded-lg max-w-md w-full p-6 relative">
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
-        >
-          <X className="w-5 h-5" />
-        </button>
-
-        <h2 className="text-2xl font-bold mb-6">Create New Stream</h2>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              Recipient Address
-            </label>
-            <input
-              type="text"
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle className="text-xl">Create New Stream</DialogTitle>
+          <DialogDescription>
+            Set up a new token stream. The recipient will be able to withdraw tokens as they vest.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="grid gap-5 py-4">
+          <div className="grid gap-2">
+            <Label htmlFor="recipient">Recipient Address</Label>
+            <Input
+              id="recipient"
               value={recipient}
               onChange={(e) => setRecipient(e.target.value)}
               placeholder="ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM"
-              className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-md bg-white dark:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
+              className={cn(
+                "font-mono text-sm",
+                errors.recipient ? "border-red-500 focus-visible:ring-red-500" : ""
+              )}
             />
+            {errors.recipient && (
+              <span className="text-xs text-red-500 font-medium">{errors.recipient}</span>
+            )}
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              Amount (STX)
-            </label>
-            <input
-              type="number"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="10.0"
-              step="0.000001"
-              min="0.000001"
-              className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-md bg-white dark:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
+          <div className="grid gap-2">
+            <Label htmlFor="amount">Amount (STX)</Label>
+            <div className="relative">
+              <Input
+                id="amount"
+                type="number"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="0.00"
+                step="0.000001"
+                min="0.000001"
+                className={cn(
+                  "pr-12",
+                  errors.amount ? "border-red-500 focus-visible:ring-red-500" : ""
+                )}
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-zinc-500 font-medium">
+                STX
+              </span>
+            </div>
+            {errors.amount && (
+              <span className="text-xs text-red-500 font-medium">{errors.amount}</span>
+            )}
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              Duration
-            </label>
-            <div className="grid grid-cols-3 gap-2">
-              <div>
-                <input
+          <div className="grid gap-2">
+            <Label>Duration</Label>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="grid gap-1.5">
+                <Input
                   type="number"
                   value={days}
                   onChange={(e) => setDays(e.target.value)}
-                  placeholder="Days"
                   min="0"
-                  className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-md bg-white dark:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="text-center"
                 />
-                <span className="text-xs text-zinc-500 block mt-1">Days</span>
+                <span className="text-[10px] text-zinc-500 text-center uppercase tracking-wider font-semibold">Days</span>
               </div>
-              <div>
-                <input
+              <div className="grid gap-1.5">
+                <Input
                   type="number"
                   value={hours}
                   onChange={(e) => setHours(e.target.value)}
-                  placeholder="Hours"
                   min="0"
                   max="23"
-                  className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-md bg-white dark:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="text-center"
                 />
-                <span className="text-xs text-zinc-500 block mt-1">Hours</span>
+                <span className="text-[10px] text-zinc-500 text-center uppercase tracking-wider font-semibold">Hours</span>
               </div>
-              <div>
-                <input
+              <div className="grid gap-1.5">
+                <Input
                   type="number"
                   value={minutes}
                   onChange={(e) => setMinutes(e.target.value)}
-                  placeholder="Minutes"
                   min="0"
                   max="59"
-                  className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-md bg-white dark:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="text-center"
                 />
-                <span className="text-xs text-zinc-500 block mt-1">Minutes</span>
+                <span className="text-[10px] text-zinc-500 text-center uppercase tracking-wider font-semibold">Mins</span>
               </div>
             </div>
+            {errors.duration && (
+              <span className="text-xs text-red-500 font-medium">{errors.duration}</span>
+            )}
           </div>
-
-          <div className="flex gap-2 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onClose}
-              className="flex-1"
+          
+          <DialogFooter className="pt-4 gap-2 sm:gap-0">
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={onClose} 
               disabled={loading}
+              className="w-full sm:w-auto hover:bg-zinc-100 dark:hover:bg-zinc-800"
             >
               Cancel
             </Button>
-            <Button
-              type="submit"
-              className="flex-1"
+            <Button 
+              type="submit" 
               disabled={loading}
+              className={cn(
+                "w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white shadow-md transition-all",
+                loading ? "opacity-90" : "hover:shadow-lg hover:-translate-y-0.5"
+              )}
             >
-              {loading ? 'Creating...' : 'Create Stream'}
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Create Stream
+                </>
+              )}
             </Button>
-          </div>
+          </DialogFooter>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
