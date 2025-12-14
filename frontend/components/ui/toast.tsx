@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import * as ToastPrimitive from "@radix-ui/react-toast";
-import { v4 as uuid } from "uuid";
 import { cn } from "@/lib/utils";
 
 export type ToastVariant = "default" | "success" | "error" | "info";
@@ -30,7 +29,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = React.useState<InternalToast[]>([]);
 
   const addToast = React.useCallback((options: ToastOptions) => {
-    const id = uuid();
+    const id = crypto.randomUUID();
     setToasts((prev) => [...prev, { id, ...options }]);
   }, []);
 
