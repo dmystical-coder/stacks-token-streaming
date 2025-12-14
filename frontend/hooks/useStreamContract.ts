@@ -1,21 +1,27 @@
-'use client';
+"use client";
 
-import { 
-  uintCV, 
-  principalCV, 
-  AnchorMode, 
+import {
+  uintCV,
+  principalCV,
+  AnchorMode,
   PostConditionMode,
-  makeStandardSTXPostCondition,
-  FungibleConditionCode,
-  createAssetInfo,
-  makeContractSTXPostCondition
-} from '@stacks/transactions';
-import { CONTRACT_ADDRESS, CONTRACT_NAME, NETWORK, stxToMicroStx, parseDurationToSeconds } from '@/lib/stacks';
-import { useAuth } from '@/contexts/AuthContext';
-import { parseContractError, formatErrorMessage } from '@/lib/errors';
+  Pc,
+} from "@stacks/transactions";
+import {
+  CONTRACT_ADDRESS,
+  CONTRACT_NAME,
+  NETWORK,
+  stxToMicroStx,
+  parseDurationToSeconds,
+} from "@/lib/stacks";
+import { useAuth } from "@/contexts/AuthContext";
+import { parseContractError, formatErrorMessage } from "@/lib/errors";
+
+// Determine if we're on mainnet
+const IS_MAINNET = NETWORK === "mainnet";
 
 export function useStreamContract() {
-  const { userSession } = useAuth();
+  const { userAddress } = useAuth();
 
   const createStream = async (
     recipient: string,
@@ -27,26 +33,26 @@ export function useStreamContract() {
     const tokenAmount = stxToMicroStx(amount);
     const duration = parseDurationToSeconds(days, hours, minutes);
 
-    const { openContractCall } = await import('@stacks/connect');
-    
-    // Get user address
-    const userAddress = userSession?.loadUserData().profile.stxAddress.testnet || userSession?.loadUserData().profile.stxAddress.mainnet;
-    
-    // Create post condition: user must transfer exact amount to contract
-    const postConditions = userAddress ? [
-      makeStandardSTXPostCondition(
-        userAddress,
-        FungibleConditionCode.Equal,
-        tokenAmount
-      )
-    ] : [];
+    const { openContractCall } = await import("@stacks/connect");
+
+    // Create post conditions for escrow pattern:
+    // 1. User sends exact amount
+    // 2. Contract doesn't send anything (only receives)
+    const postConditions = userAddress
+      ? [
+          Pc.principal(userAddress).willSendEq(tokenAmount).ustx(),
+          Pc.principal(`${CONTRACT_ADDRESS}.${CONTRACT_NAME}`)
+            .willSendEq(BigInt(0))
+            .ustx(),
+        ]
+      : [];
 
     await openContractCall({
       network: NETWORK,
       anchorMode: AnchorMode.Any,
       contractAddress: CONTRACT_ADDRESS,
       contractName: CONTRACT_NAME,
-      functionName: 'create-stream',
+      functionName: "create-stream",
       functionArgs: [
         principalCV(recipient),
         uintCV(tokenAmount),
@@ -55,61 +61,54 @@ export function useStreamContract() {
       postConditionMode: PostConditionMode.Deny,
       postConditions,
       onFinish: (data) => {
-        console.log('Stream created:', data);
+        console.log("Stream created:", data);
         // Success callback
       },
       onCancel: () => {
-        console.log('Transaction cancelled');
+        console.log("Transaction cancelled");
         // User cancelled
       },
     });
   };
 
   const withdrawFromStream = async (streamId: number) => {
-    const { openContractCall } = await import('@stacks/connect');
-    
-    // Get user address
-    const userAddress = userSession?.loadUserData().profile.stxAddress.testnet || userSession?.loadUserData().profile.stxAddress.mainnet;
-    
+    const { openContractCall } = await import("@stacks/connect");
+
     // Create post condition: contract must transfer STX to user (recipient)
-    const postConditions = userAddress ? [
-      makeContractSTXPostCondition(
-        CONTRACT_ADDRESS,
-        CONTRACT_NAME,
-        FungibleConditionCode.GreaterEqual,
-        1n // At least 1 microSTX must be transferred
-      )
-    ] : [];
+    const postConditions = userAddress
+      ? [
+          Pc.principal(`${CONTRACT_ADDRESS}.${CONTRACT_NAME}`)
+            .willSendGte(BigInt(1))
+            .ustx(),
+        ]
+      : [];
 
     await openContractCall({
       network: NETWORK,
       anchorMode: AnchorMode.Any,
       contractAddress: CONTRACT_ADDRESS,
       contractName: CONTRACT_NAME,
-      functionName: 'withdraw-from-stream',
+      functionName: "withdraw-from-stream",
       functionArgs: [uintCV(streamId)],
       postConditionMode: PostConditionMode.Deny,
       postConditions,
       onFinish: (data) => {
-        console.log('Withdrawal successful:', data);
+        console.log("Withdrawal successful:", data);
       },
       onCancel: () => {
-        console.log('Transaction cancelled');
+        console.log("Transaction cancelled");
       },
     });
   };
 
   const cancelStream = async (streamId: number) => {
-    const { openContractCall } = await import('@stacks/connect');
-    
+    const { openContractCall } = await import("@stacks/connect");
+
     // Post condition: contract must transfer STX (refund + vested)
     const postConditions = [
-      makeContractSTXPostCondition(
-        CONTRACT_ADDRESS,
-        CONTRACT_NAME,
-        FungibleConditionCode.GreaterEqual,
-        0n // May transfer 0 if all tokens were already withdrawn
-      )
+      Pc.principal(`${CONTRACT_ADDRESS}.${CONTRACT_NAME}`)
+        .willSendGte(BigInt(0))
+        .ustx(),
     ];
 
     await openContractCall({
@@ -117,53 +116,53 @@ export function useStreamContract() {
       anchorMode: AnchorMode.Any,
       contractAddress: CONTRACT_ADDRESS,
       contractName: CONTRACT_NAME,
-      functionName: 'cancel-stream',
+      functionName: "cancel-stream",
       functionArgs: [uintCV(streamId)],
       postConditionMode: PostConditionMode.Deny,
       postConditions,
       onFinish: (data) => {
-        console.log('Stream cancelled:', data);
+        console.log("Stream cancelled:", data);
       },
       onCancel: () => {
-        console.log('Transaction cancelled');
+        console.log("Transaction cancelled");
       },
     });
   };
 
   const pauseStream = async (streamId: number) => {
-    const { openContractCall } = await import('@stacks/connect');
+    const { openContractCall } = await import("@stacks/connect");
     await openContractCall({
       network: NETWORK,
       anchorMode: AnchorMode.Any,
       contractAddress: CONTRACT_ADDRESS,
       contractName: CONTRACT_NAME,
-      functionName: 'pause-stream',
+      functionName: "pause-stream",
       functionArgs: [uintCV(streamId)],
       postConditionMode: PostConditionMode.Allow,
       onFinish: (data) => {
-        console.log('Stream paused:', data);
+        console.log("Stream paused:", data);
       },
       onCancel: () => {
-        console.log('Transaction cancelled');
+        console.log("Transaction cancelled");
       },
     });
   };
 
   const resumeStream = async (streamId: number) => {
-    const { openContractCall } = await import('@stacks/connect');
+    const { openContractCall } = await import("@stacks/connect");
     await openContractCall({
       network: NETWORK,
       anchorMode: AnchorMode.Any,
       contractAddress: CONTRACT_ADDRESS,
       contractName: CONTRACT_NAME,
-      functionName: 'resume-stream',
+      functionName: "resume-stream",
       functionArgs: [uintCV(streamId)],
       postConditionMode: PostConditionMode.Allow,
       onFinish: (data) => {
-        console.log('Stream resumed:', data);
+        console.log("Stream resumed:", data);
       },
       onCancel: () => {
-        console.log('Transaction cancelled');
+        console.log("Transaction cancelled");
       },
     });
   };
