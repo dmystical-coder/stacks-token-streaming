@@ -106,24 +106,24 @@ export function StreamCard({ streamId, stream, onUpdate }: StreamCardProps) {
   const availableStx = microStxToStx(availableBalance);
 
   return (
-    <div className="group relative overflow-hidden rounded-xl border border-zinc-200 bg-white p-6 shadow-sm transition-all hover:shadow-md dark:border-zinc-800 dark:bg-zinc-950">
-      <div className="flex items-start justify-between mb-6">
+    <div className="group relative overflow-hidden rounded-xl border border-zinc-200 bg-white p-4 sm:p-6 shadow-sm transition-all hover:shadow-md dark:border-zinc-800 dark:bg-zinc-950">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between mb-6 gap-4 sm:gap-0">
         <div>
-          <div className="flex items-center gap-3 mb-2">
+          <div className="flex items-center gap-3 mb-2 flex-wrap">
             <span className="font-mono text-sm text-zinc-500">#{streamId}</span>
             <span className={cn("px-2.5 py-0.5 rounded-full text-xs font-medium border", status.color)}>
               {status.label}
             </span>
           </div>
-          <div className="flex items-baseline gap-1">
-            <span className="text-3xl font-bold tracking-tight">{totalStx}</span>
+          <div className="flex items-baseline gap-1 flex-wrap">
+            <span className="text-2xl sm:text-3xl font-bold tracking-tight break-all">{totalStx}</span>
             <span className="text-sm font-medium text-zinc-500">STX</span>
           </div>
         </div>
         
-        <div className="text-right">
+        <div className="text-left sm:text-right">
           <div className="text-sm text-zinc-500 mb-1">Withdrawn</div>
-          <div className="font-medium text-zinc-900 dark:text-zinc-100">
+          <div className="font-medium text-zinc-900 dark:text-zinc-100 break-all">
             {withdrawnStx} <span className="text-xs text-zinc-500">STX</span>
           </div>
         </div>
@@ -140,7 +140,7 @@ export function StreamCard({ streamId, stream, onUpdate }: StreamCardProps) {
         </div>
 
         {/* Details Grid */}
-        <div className="grid grid-cols-2 gap-4 py-4 border-t border-b border-zinc-100 dark:border-zinc-900">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-4 border-t border-b border-zinc-100 dark:border-zinc-900">
           <div className="space-y-1">
             <div className="flex items-center gap-1.5 text-xs text-zinc-500">
               <User className="w-3.5 h-3.5" />
@@ -150,10 +150,11 @@ export function StreamCard({ streamId, stream, onUpdate }: StreamCardProps) {
               {stream.sender.slice(0, 6)}...{stream.sender.slice(-4)}
             </div>
           </div>
-          <div className="space-y-1 text-right">
-            <div className="flex items-center justify-end gap-1.5 text-xs text-zinc-500">
-              <span>To</span>
-              <ArrowRight className="w-3 h-3" />
+          <div className="space-y-1 sm:text-right">
+            <div className="flex items-center sm:justify-end gap-1.5 text-xs text-zinc-500">
+              <span className="hidden sm:inline">To</span>
+              <ArrowRight className="w-3 h-3 hidden sm:block" />
+              <span className="sm:hidden">To:</span>
             </div>
             <div className="font-mono text-xs truncate" title={stream.recipient}>
               {stream.recipient.slice(0, 6)}...{stream.recipient.slice(-4)}
@@ -169,12 +170,12 @@ export function StreamCard({ streamId, stream, onUpdate }: StreamCardProps) {
             </div>
           </div>
           {availableBalance > 0 && (
-            <div className="space-y-1 text-right">
-              <div className="flex items-center justify-end gap-1.5 text-xs text-zinc-500">
+            <div className="space-y-1 sm:text-right">
+              <div className="flex items-center sm:justify-end gap-1.5 text-xs text-zinc-500">
                 <Coins className="w-3.5 h-3.5 text-green-600" />
                 <span className="text-green-600 font-medium">Available</span>
               </div>
-              <div className="text-sm font-bold text-green-600">
+              <div className="text-sm font-bold text-green-600 break-all">
                 {availableStx} STX
               </div>
             </div>
@@ -183,7 +184,7 @@ export function StreamCard({ streamId, stream, onUpdate }: StreamCardProps) {
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <TooltipProvider>
           {isRecipient && !stream.isCancelled && !stream.isPaused && availableBalance > 0 && (
             <Tooltip>
@@ -191,7 +192,7 @@ export function StreamCard({ streamId, stream, onUpdate }: StreamCardProps) {
                 <Button
                   onClick={() => handleAction('withdraw', () => withdrawFromStream(streamId))}
                   disabled={!!loadingAction}
-                  className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                  className="flex-1 min-w-[120px] bg-green-600 hover:bg-green-700 text-white"
                 >
                   {loadingAction === 'withdraw' ? (
                     <Loader2 className="w-4 h-4 animate-spin mr-2" />
@@ -214,7 +215,7 @@ export function StreamCard({ streamId, stream, onUpdate }: StreamCardProps) {
                       onClick={() => handleAction('resume', () => resumeStream(streamId))}
                       disabled={!!loadingAction}
                       variant="outline"
-                      className="flex-1"
+                      className="flex-1 min-w-[100px]"
                     >
                       {loadingAction === 'resume' ? (
                         <Loader2 className="w-4 h-4 animate-spin mr-2" />
@@ -233,7 +234,7 @@ export function StreamCard({ streamId, stream, onUpdate }: StreamCardProps) {
                       onClick={() => handleAction('pause', () => pauseStream(streamId))}
                       disabled={!!loadingAction}
                       variant="outline"
-                      className="flex-1"
+                      className="flex-1 min-w-[100px]"
                     >
                       {loadingAction === 'pause' ? (
                         <Loader2 className="w-4 h-4 animate-spin mr-2" />

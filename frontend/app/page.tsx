@@ -245,29 +245,29 @@ export default function Home() {
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8 max-w-7xl">
+      <main className="container mx-auto px-4 py-8 max-w-7xl overflow-x-hidden">
         {!isSignedIn ? (
-          <div className="flex flex-col items-center justify-center py-32 animate-in fade-in slide-in-from-bottom-4 duration-700">
+          <div className="flex flex-col items-center justify-center py-20 sm:py-32 animate-in fade-in slide-in-from-bottom-4 duration-700 px-4 text-center">
             <div className="bg-blue-50 dark:bg-blue-900/20 p-6 rounded-full mb-8">
-              <Waves className="w-16 h-16 text-blue-600 dark:text-blue-400" />
+              <Waves className="w-12 h-12 sm:w-16 sm:h-16 text-blue-600 dark:text-blue-400" />
             </div>
-            <h2 className="text-4xl font-extrabold mb-4 tracking-tight text-center">
+            <h2 className="text-3xl sm:text-4xl font-extrabold mb-4 tracking-tight">
               Stream Tokens over Time
             </h2>
-            <p className="text-zinc-500 dark:text-zinc-400 mb-8 text-center max-w-lg text-lg">
+            <p className="text-zinc-500 dark:text-zinc-400 mb-8 max-w-lg text-base sm:text-lg">
               Securely stream STX and SIP-010 tokens with built-in vesting
               schedules, pause/resume capabilities, and completely trustless
               smart contracts.
             </p>
-            <div className="transform scale-110">
+            <div className="transform hover:scale-105 transition-transform">
               <ConnectWallet />
             </div>
           </div>
         ) : (
           <div className="space-y-8 animate-in fade-in duration-500">
             <Tabs defaultValue="dashboard" className="w-full">
-              <div className="flex items-center justify-between mb-8">
-                <TabsList className="bg-zinc-100 dark:bg-zinc-800 p-1">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
+                <TabsList className="bg-zinc-100 dark:bg-zinc-800 p-1 w-full sm:w-auto grid grid-cols-2 sm:flex">
                   <TabsTrigger value="dashboard" className="px-4">
                     <LayoutDashboard className="w-4 h-4 mr-2" />
                     Dashboard
@@ -281,7 +281,7 @@ export default function Home() {
                 <Button
                   onClick={() => setShowCreateModal(true)}
                   size="sm"
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                  className="bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto"
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   Create Stream
@@ -290,7 +290,7 @@ export default function Home() {
 
               <TabsContent value="dashboard" className="space-y-8 mt-0">
                 {/* Dashboard Stats */}
-                <div className="grid gap-4 md:grid-cols-3">
+                <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
                   <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                       <CardTitle className="text-sm font-medium">
@@ -299,7 +299,7 @@ export default function Home() {
                       <Wallet className="h-4 w-4 text-zinc-500" />
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold">
+                      <div className="text-2xl font-bold break-all">
                         {stats.totalVolume} STX
                       </div>
                       <p className="text-xs text-zinc-500">
@@ -342,19 +342,21 @@ export default function Home() {
                 </div>
 
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                  <Tabs
-                    value={filter}
-                    onValueChange={(v: string) => setFilter(v as StreamFilter)}
-                    className="w-full md:w-auto"
-                  >
-                    <TabsList>
-                      <TabsTrigger value="all">All</TabsTrigger>
-                      <TabsTrigger value="active">Active</TabsTrigger>
-                      <TabsTrigger value="paused">Paused</TabsTrigger>
-                      <TabsTrigger value="completed">Completed</TabsTrigger>
-                      <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
-                    </TabsList>
-                  </Tabs>
+                  <div className="w-full overflow-x-auto pb-2 md:pb-0">
+                    <Tabs
+                      value={filter}
+                      onValueChange={(v: string) => setFilter(v as StreamFilter)}
+                      className="w-full md:w-auto min-w-max"
+                    >
+                      <TabsList>
+                        <TabsTrigger value="all">All</TabsTrigger>
+                        <TabsTrigger value="active">Active</TabsTrigger>
+                        <TabsTrigger value="paused">Paused</TabsTrigger>
+                        <TabsTrigger value="completed">Completed</TabsTrigger>
+                        <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
+                      </TabsList>
+                    </Tabs>
+                  </div>
 
                   <div className="flex items-center gap-2 w-full md:w-auto">
                     <Button
@@ -362,7 +364,7 @@ export default function Home() {
                       variant="outline"
                       size="sm"
                       disabled={loading || isRefreshing}
-                      className="ml-auto md:ml-0"
+                      className="ml-auto md:ml-0 w-full sm:w-auto"
                     >
                       <RefreshCw
                         className={`w-4 h-4 mr-2 ${

@@ -80,20 +80,20 @@ export function WalletView() {
           </CardHeader>
           <CardContent>
             <div className="flex flex-col gap-4">
-              <div>
-                <span className="text-4xl font-bold">
+              <div className="flex flex-wrap items-baseline gap-2">
+                <span className="text-3xl sm:text-4xl font-bold break-all">
                   {balance ? microStxToStx(Number(balance.balance)) : '0.00'}
                 </span>
-                <span className="text-zinc-500 ml-2">STX</span>
+                <span className="text-zinc-500 text-lg">STX</span>
               </div>
               
-              <div className="flex items-center gap-2 p-2 bg-zinc-100 dark:bg-zinc-900 rounded-lg w-fit">
-                <span className="text-sm font-mono text-zinc-600 dark:text-zinc-400">
-                  {truncateAddress(userAddress)}
+              <div className="flex items-center gap-2 p-2 bg-zinc-100 dark:bg-zinc-900 rounded-lg w-full sm:w-fit max-w-full">
+                <span className="text-sm font-mono text-zinc-600 dark:text-zinc-400 truncate flex-1 sm:flex-initial">
+                  {userAddress}
                 </span>
                 <button 
                   onClick={copyAddress}
-                  className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded transition-colors"
+                  className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded transition-colors shrink-0"
                 >
                   {copied ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3 text-zinc-500" />}
                 </button>
@@ -109,13 +109,13 @@ export function WalletView() {
             <CardDescription>Lifetime wallet activity</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="p-4 rounded-lg bg-green-50 dark:bg-green-900/10 border border-green-100 dark:border-green-900/30">
                 <div className="flex items-center gap-2 mb-2 text-green-700 dark:text-green-400">
                   <ArrowDownLeft className="w-4 h-4" />
                   <span className="text-sm font-medium">Received</span>
                 </div>
-                <div className="font-bold text-lg">
+                <div className="font-bold text-lg break-all">
                    {balance ? microStxToStx(Number(balance.total_received)) : '0'} STX
                 </div>
               </div>
@@ -125,7 +125,7 @@ export function WalletView() {
                   <ArrowUpRight className="w-4 h-4" />
                   <span className="text-sm font-medium">Sent</span>
                 </div>
-                <div className="font-bold text-lg">
+                <div className="font-bold text-lg break-all">
                   {balance ? microStxToStx(Number(balance.total_sent)) : '0'} STX
                 </div>
               </div>
@@ -153,15 +153,15 @@ export function WalletView() {
                   <div 
                     key={tx.tx_id}
                     className={cn(
-                      "flex items-center justify-between p-4 rounded-lg border transition-all",
+                      "flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-lg border transition-all gap-3 sm:gap-0",
                       isContract 
                         ? "bg-blue-50/50 border-blue-100 dark:bg-blue-900/10 dark:border-blue-900/30" 
                         : "bg-white border-zinc-100 dark:bg-zinc-900/50 dark:border-zinc-800"
                     )}
                   >
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-start sm:items-center gap-4">
                       <div className={cn(
-                        "p-2 rounded-full",
+                        "p-2 rounded-full shrink-0",
                         tx.tx_status === 'success' ? "bg-green-100 text-green-600 dark:bg-green-900/30" : "bg-red-100 text-red-600 dark:bg-red-900/30"
                       )}>
                         {tx.tx_type === 'token_transfer' && tx.sender_address === userAddress ? (
@@ -170,11 +170,11 @@ export function WalletView() {
                           <RefreshCw className="w-4 h-4" />
                         )}
                       </div>
-                      <div>
-                        <div className="font-medium flex items-center gap-2">
-                          {getTxLabel(tx)}
+                      <div className="min-w-0">
+                        <div className="font-medium flex items-center gap-2 flex-wrap">
+                          <span className="truncate max-w-[200px] sm:max-w-full">{getTxLabel(tx)}</span>
                           {isContract && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 shrink-0">
                               Contract
                             </span>
                           )}
@@ -185,14 +185,16 @@ export function WalletView() {
                       </div>
                     </div>
                     
-                    <a 
-                      href={`https://explorer.hiro.so/txid/${tx.tx_id}?chain=mainnet`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
-                    >
-                      <ExternalLink className="w-4 h-4" />
-                    </a>
+                    <div className="flex justify-end w-full sm:w-auto">
+                      <a 
+                        href={`https://explorer.hiro.so/txid/${tx.tx_id}?chain=mainnet`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-colors"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                      </a>
+                    </div>
                   </div>
                 );
               })}
