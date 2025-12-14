@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { ConnectWallet } from "@/components/ConnectWallet";
 import { CreateStreamModal } from "@/components/CreateStreamModal";
 import { StreamCard } from "@/components/StreamCard";
@@ -42,141 +42,140 @@ export default function Home() {
   const [filter, setFilter] = useState<StreamFilter>("all");
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  useEffect(() => {
-    if (isSignedIn && userAddress) {
-      loadStreams();
-    }
-  }, [isSignedIn, userAddress]);
+  const loadStreams = useCallback(
+    async (showLoadingSpinner = true) => {
+      if (!userAddress) return;
 
-  useStreamEvents(userAddress, () => {
-    loadStreams(false);
-  });
-
-  const loadStreams = async (showLoadingSpinner = true) => {
-    if (!userAddress) return;
-
-    if (showLoadingSpinner) {
-      setLoading(true);
-    } else {
-      setIsRefreshing(true);
-    }
-
-    try {
-      const totalResult = await fetchCallReadOnlyFunction({
-        contractAddress: CONTRACT_ADDRESS,
-        contractName: CONTRACT_NAME,
-        functionName: "get-total-streams",
-        functionArgs: [],
-        network: NETWORK,
-        senderAddress: userAddress,
-      });
-
-      const totalJson = cvToJSON(totalResult);
-      let totalValue = totalJson.value;
-      if (totalJson.type?.startsWith("(response") && totalJson.value) {
-        totalValue = totalJson.value;
-      }
-      if (
-        totalValue &&
-        typeof totalValue === "object" &&
-        "value" in totalValue
-      ) {
-        totalValue = totalValue.value;
+      if (showLoadingSpinner) {
+        setLoading(true);
+      } else {
+        setIsRefreshing(true);
       }
 
-      const total = Number(totalValue);
+      try {
+        const totalResult = await fetchCallReadOnlyFunction({
+          contractAddress: CONTRACT_ADDRESS,
+          contractName: CONTRACT_NAME,
+          functionName: "get-total-streams",
+          functionArgs: [],
+          network: NETWORK,
+          senderAddress: userAddress,
+        });
 
-      if (isNaN(total)) {
-        console.error("Failed to parse total streams count", totalJson);
-        return;
-      }
-
-      const loadedStreams: Array<{ id: number; data: Stream }> = [];
-
-      // Optimize: Use Promise.all with chunks if total is large, but sequential is safer for public nodes for now
-      // Or just fetch all sequentially as before.
-
-      // We will fetch in batches of 5 to speed it up slightly without rate limiting
-      const batchSize = 5;
-      for (let i = 1; i <= total; i += batchSize) {
-        const batch = [];
-        for (let j = i; j < i + batchSize && j <= total; j++) {
-          batch.push(
-            fetchCallReadOnlyFunction({
-              contractAddress: CONTRACT_ADDRESS,
-              contractName: CONTRACT_NAME,
-              functionName: "get-stream",
-              functionArgs: [uintCV(j)],
-              network: NETWORK,
-              senderAddress: userAddress,
-            }).then((res) => ({ id: j, res }))
-          );
+        const totalJson = cvToJSON(totalResult);
+        let totalValue = totalJson.value;
+        if (totalJson.type?.startsWith("(response") && totalJson.value) {
+          totalValue = totalJson.value;
+        }
+        if (
+          totalValue &&
+          typeof totalValue === "object" &&
+          "value" in totalValue
+        ) {
+          totalValue = totalValue.value;
         }
 
-        const results = await Promise.all(batch);
+        const total = Number(totalValue);
 
-        for (const { id, res } of results) {
-          const streamData = cvToJSON(res);
-          if (!streamData || !streamData.value) continue;
+        if (isNaN(total)) {
+          console.error("Failed to parse total streams count", totalJson);
+          return;
+        }
 
-          let innerValue = streamData.value;
-          if (
-            streamData.type === "(response (optional (tuple ...)))" ||
-            streamData.type?.startsWith("(response")
-          ) {
-            innerValue = streamData.value.value;
+        const loadedStreams: Array<{ id: number; data: Stream }> = [];
+
+        const batchSize = 5;
+        for (let i = 1; i <= total; i += batchSize) {
+          const batch = [];
+          for (let j = i; j < i + batchSize && j <= total; j++) {
+            batch.push(
+              fetchCallReadOnlyFunction({
+                contractAddress: CONTRACT_ADDRESS,
+                contractName: CONTRACT_NAME,
+                functionName: "get-stream",
+                functionArgs: [uintCV(j)],
+                network: NETWORK,
+                senderAddress: userAddress,
+              }).then((res) => ({ id: j, res }))
+            );
           }
 
-          if (
-            (innerValue && innerValue.type === "(optional (tuple ...))") ||
-            innerValue?.type?.startsWith("(optional")
-          ) {
-            innerValue = innerValue.value;
-          }
+          const results = await Promise.all(batch);
 
-          if (innerValue && innerValue.value) {
-            const stream = innerValue.value;
+          for (const { id, res } of results) {
+            const streamData = cvToJSON(res);
+            if (!streamData || !streamData.value) continue;
+
+            let innerValue = streamData.value;
             if (
-              stream.sender?.value === userAddress ||
-              stream.recipient?.value === userAddress
+              streamData.type === "(response (optional (tuple ...)))" ||
+              streamData.type?.startsWith("(response")
             ) {
-              try {
-                loadedStreams.push({
-                  id,
-                  data: {
-                    sender: stream.sender.value,
-                    recipient: stream.recipient.value,
-                    tokenAmount: Number(stream["token-amount"].value),
-                    startTime: Number(stream["start-time"].value),
-                    endTime: Number(stream["end-time"].value),
-                    withdrawnAmount: Number(stream["withdrawn-amount"].value),
-                    isCancelled: stream["is-cancelled"].value,
-                    isPaused: stream["is-paused"].value,
-                    pausedAt: Number(stream["paused-at"].value),
-                    totalPausedDuration: Number(
-                      stream["total-paused-duration"].value
-                    ),
-                    createdAtBlock: Number(stream["created-at-block"].value),
-                    tokenType: "STX",
-                    tokenContract: null,
-                  },
-                });
-              } catch (e) {
-                console.error("Error parsing stream", id, e);
+              innerValue = streamData.value.value;
+            }
+
+            if (
+              (innerValue && innerValue.type === "(optional (tuple ...))") ||
+              innerValue?.type?.startsWith("(optional")
+            ) {
+              innerValue = innerValue.value;
+            }
+
+            if (innerValue && innerValue.value) {
+              const stream = innerValue.value;
+              if (
+                stream.sender?.value === userAddress ||
+                stream.recipient?.value === userAddress
+              ) {
+                try {
+                  loadedStreams.push({
+                    id,
+                    data: {
+                      sender: stream.sender.value,
+                      recipient: stream.recipient.value,
+                      tokenAmount: Number(stream["token-amount"].value),
+                      startTime: Number(stream["start-time"].value),
+                      endTime: Number(stream["end-time"].value),
+                      withdrawnAmount: Number(stream["withdrawn-amount"].value),
+                      isCancelled: stream["is-cancelled"].value,
+                      isPaused: stream["is-paused"].value,
+                      pausedAt: Number(stream["paused-at"].value),
+                      totalPausedDuration: Number(
+                        stream["total-paused-duration"].value
+                      ),
+                      createdAtBlock: Number(stream["created-at-block"].value),
+                      tokenType: "STX",
+                      tokenContract: null,
+                    },
+                  });
+                } catch (e) {
+                  console.error("Error parsing stream", id, e);
+                }
               }
             }
           }
         }
-      }
 
-      setStreams(loadedStreams.sort((a, b) => b.id - a.id)); // Sort by newest first
-    } catch (error) {
-      console.error("Error loading streams:", error);
-    } finally {
-      setLoading(false);
-      setIsRefreshing(false);
+        setStreams(loadedStreams.sort((a, b) => b.id - a.id));
+      } catch (error) {
+        console.error("Error loading streams:", error);
+      } finally {
+        setLoading(false);
+        setIsRefreshing(false);
+      }
+    },
+    [userAddress]
+  );
+
+  useEffect(() => {
+    if (isSignedIn && userAddress) {
+      loadStreams();
     }
-  };
+  }, [isSignedIn, userAddress, loadStreams]);
+
+  useStreamEvents(userAddress, () => {
+    loadStreams(false);
+  });
 
   const filteredStreams = useMemo(() => {
     return streams.filter((stream) => {

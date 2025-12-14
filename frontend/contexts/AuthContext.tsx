@@ -6,6 +6,7 @@ import {
   useState,
   useEffect,
   ReactNode,
+  useCallback,
 } from "react";
 import {
   connect,
@@ -34,7 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [userAddress, setUserAddress] = useState<string | null>(null);
   const [bnsName, setBnsName] = useState<string | null>(null);
 
-  const fetchBnsName = async (address: string) => {
+  const fetchBnsName = useCallback(async (address: string) => {
     try {
       // Use the appropriate BNS API endpoint based on network
       const bnsNetwork = IS_MAINNET ? "mainnet" : "testnet";
@@ -51,7 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error("Error fetching BNS name:", error);
       setBnsName(null);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (isConnected()) {
@@ -65,9 +66,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const address = storageData.addresses.stx[0].address;
         // Verify address matches the expected network prefix
         if (address.startsWith(EXPECTED_PREFIX)) {
-          setIsSignedIn(true);
-          setUserAddress(address);
-          fetchBnsName(address);
+          // Wrap in setTimeout to push to next tick, avoiding sync state update warning
+          setTimeout(() => {
+            setIsSignedIn(true);
+            setUserAddress(address);
+            fetchBnsName(address);
+          }, 0);
         } else {
           // If address doesn't match expected network, sign out
           console.warn(
@@ -80,7 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
     }
-  }, []);
+  }, [fetchBnsName]);
 
   const signIn = async () => {
     try {

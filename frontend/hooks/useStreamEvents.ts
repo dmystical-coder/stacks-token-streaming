@@ -6,8 +6,16 @@ export function useStreamEvents(address: string | null, onUpdate: () => void) {
   useEffect(() => {
     if (!address) return;
 
-    let client: any;
-    let sub: any;
+    // Define simpler types for the websocket client interactions we use
+    interface WebSocketClient {
+      subscribeAddressTransactions: (
+        address: string,
+        callback: (event: unknown) => void
+      ) => Promise<{ unsubscribe: () => Promise<void> }>;
+    }
+
+    let client: WebSocketClient;
+    let sub: { unsubscribe: () => Promise<void> };
     let isSubscribed = true;
 
     const connect = async () => {
@@ -18,7 +26,9 @@ export function useStreamEvents(address: string | null, onUpdate: () => void) {
       );
 
       try {
-        client = await connectWebSocketClient(wsUrl);
+        // Cast the result to our simplified interface or unknown first
+        const rawClient = await connectWebSocketClient(wsUrl);
+        client = rawClient as unknown as WebSocketClient;
 
         if (!isSubscribed) {
           // Component unmounted before connection completed
@@ -28,7 +38,7 @@ export function useStreamEvents(address: string | null, onUpdate: () => void) {
         // Subscribe to transactions involving the user's address
         sub = await client.subscribeAddressTransactions(
           address,
-          (event: any) => {
+          (event: unknown) => {
             console.log("Transaction event received:", event);
             // Trigger update on any transaction status change (mempool, included, etc.)
             onUpdate();
@@ -42,7 +52,7 @@ export function useStreamEvents(address: string | null, onUpdate: () => void) {
         console.warn(
           "WebSocket unavailable - real-time updates disabled. Use refresh button for updates."
         );
-        // Don't log the full error as it clutters the console
+        console.warn("WebSocket error:", error);
       }
     };
 

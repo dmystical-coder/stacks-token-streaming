@@ -4,7 +4,6 @@ import { Button } from './ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { Wallet, LogOut, ChevronDown, Copy, Check } from 'lucide-react';
 import { useState } from 'react';
-import { cn } from '@/lib/utils';
 import {
   DropdownMenu,
   DropdownMenuContent,

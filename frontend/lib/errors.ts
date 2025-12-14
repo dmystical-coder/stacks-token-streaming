@@ -189,10 +189,21 @@ export function isStreamEndedError(errorCode: number | bigint): boolean {
   return Number(errorCode) === 106;
 }
 
+interface ClarityErrorResponse {
+  type: string;
+  value?:
+    | {
+        type?: string;
+        value?: number | bigint;
+      }
+    | bigint
+    | number;
+}
+
 /**
  * Parse error from Clarity response
  */
-export function parseContractError(response: any): {
+export function parseContractError(response: ClarityErrorResponse): {
   code: number;
   message: string;
   suggestion?: string;
@@ -202,7 +213,12 @@ export function parseContractError(response: any): {
   // Extract error code from Clarity error response
   let errorCode: number;
 
-  if (response.value?.type === "uint") {
+  if (
+    typeof response.value === "object" &&
+    response.value !== null &&
+    "value" in response.value &&
+    response.value.type === "uint"
+  ) {
     errorCode = Number(response.value.value);
   } else if (typeof response.value === "bigint") {
     errorCode = Number(response.value);

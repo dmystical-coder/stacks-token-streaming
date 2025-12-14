@@ -15,11 +15,7 @@ import {
   parseDurationToSeconds,
 } from "@/lib/stacks";
 import { useAuth } from "@/contexts/AuthContext";
-import { parseContractError, formatErrorMessage } from "@/lib/errors";
 import { useToast } from "@/components/ui/toast";
-
-// Determine if we're on mainnet
-const IS_MAINNET = NETWORK === "mainnet";
 
 export function useStreamContract() {
   const { userAddress } = useAuth();

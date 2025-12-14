@@ -10,6 +10,18 @@ import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 
+interface Transaction {
+  tx_id: string;
+  tx_status: string;
+  tx_type: string;
+  sender_address: string;
+  burn_block_time_iso: string;
+  contract_call?: {
+    contract_id: string;
+    function_name: string;
+  };
+}
+
 export function WalletView() {
   const { userAddress } = useAuth();
   const { balance, transactions, loading, refresh } = useWalletData(userAddress);
@@ -27,8 +39,8 @@ export function WalletView() {
     return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
   };
 
-  const getTxLabel = (tx: any) => {
-    if (tx.tx_type === 'contract_call') {
+  const getTxLabel = (tx: Transaction) => {
+    if (tx.tx_type === 'contract_call' && tx.contract_call) {
       return tx.contract_call.function_name;
     }
     if (tx.tx_type === 'token_transfer') {
@@ -37,7 +49,7 @@ export function WalletView() {
     return tx.tx_type;
   };
 
-  const isContractInteraction = (tx: any) => {
+  const isContractInteraction = (tx: Transaction) => {
     return tx.contract_call?.contract_id === `${CONTRACT_ADDRESS}.${CONTRACT_NAME}`;
   };
 
@@ -195,4 +207,3 @@ export function WalletView() {
     </div>
   );
 }
-

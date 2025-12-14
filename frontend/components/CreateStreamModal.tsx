@@ -13,7 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from './ui/dialog';
-import { Loader2, Plus, X } from 'lucide-react';
+import { Loader2, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface CreateStreamModalProps {
@@ -75,7 +75,7 @@ export function CreateStreamModal({ isOpen, onClose, onSuccess }: CreateStreamMo
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+    <Dialog open={isOpen} onOpenChange={(open: boolean) => !open && onClose()}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle className="text-xl">Create New Stream</DialogTitle>

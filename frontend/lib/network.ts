@@ -1,4 +1,5 @@
 import { STACKS_MAINNET, STACKS_TESTNET } from "@stacks/network";
+import { UserData } from "@stacks/connect";
 
 // Environment configuration
 export const IS_MAINNET = process.env.NEXT_PUBLIC_NETWORK === "mainnet";
@@ -26,14 +27,27 @@ export const getContractConfig = () => {
   };
 };
 
+interface UserSession {
+  loadUserData: () => UserData;
+}
+
 // Get the appropriate STX address for current network
-export const getNetworkAddress = (userSession: any): string | undefined => {
+export const getNetworkAddress = (
+  userSession: UserSession
+): string | undefined => {
   if (!userSession) return undefined;
 
   const userData = userSession.loadUserData();
   const addresses = userData?.profile?.stxAddress;
 
-  return IS_MAINNET ? addresses?.mainnet : addresses?.testnet;
+  if (!addresses) return undefined;
+
+  // Type assertion since library types might be imprecise
+  const stxAddresses = addresses as unknown as {
+    mainnet?: string;
+    testnet?: string;
+  };
+  return IS_MAINNET ? stxAddresses.mainnet : stxAddresses.testnet;
 };
 
 // Get explorer URL for transaction
