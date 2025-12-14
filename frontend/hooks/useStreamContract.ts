@@ -16,12 +16,14 @@ import {
 } from "@/lib/stacks";
 import { useAuth } from "@/contexts/AuthContext";
 import { parseContractError, formatErrorMessage } from "@/lib/errors";
+import { useToast } from "@/components/ui/toast";
 
 // Determine if we're on mainnet
 const IS_MAINNET = NETWORK === "mainnet";
 
 export function useStreamContract() {
   const { userAddress } = useAuth();
+  const { toast } = useToast();
 
   const createStream = async (
     recipient: string,
@@ -62,10 +64,16 @@ export function useStreamContract() {
       postConditions,
       onFinish: (data) => {
         console.log("Stream created:", data);
+        toast({
+          title: "Stream successfully created",
+          description: "Your transaction was submitted to the network.",
+          variant: "success",
+        });
         // Success callback
       },
       onCancel: () => {
         console.log("Transaction cancelled");
+        toast({ title: "Transaction cancelled", variant: "info" });
         // User cancelled
       },
     });
@@ -94,9 +102,15 @@ export function useStreamContract() {
       postConditions,
       onFinish: (data) => {
         console.log("Withdrawal successful:", data);
+        toast({
+          title: "Withdrawal initiated",
+          description: "Transaction submitted to the network",
+          variant: "success",
+        });
       },
       onCancel: () => {
         console.log("Transaction cancelled");
+        toast({ title: "Transaction cancelled", variant: "info" });
       },
     });
   };
@@ -122,9 +136,15 @@ export function useStreamContract() {
       postConditions,
       onFinish: (data) => {
         console.log("Stream cancelled:", data);
+        toast({
+          title: "Stream cancellation initiated",
+          description: "Transaction submitted to the network",
+          variant: "success",
+        });
       },
       onCancel: () => {
         console.log("Transaction cancelled");
+        toast({ title: "Transaction cancelled", variant: "info" });
       },
     });
   };
@@ -141,9 +161,15 @@ export function useStreamContract() {
       postConditionMode: PostConditionMode.Allow,
       onFinish: (data) => {
         console.log("Stream paused:", data);
+        toast({
+          title: "Stream pause initiated",
+          description: "Transaction submitted to the network",
+          variant: "success",
+        });
       },
       onCancel: () => {
         console.log("Transaction cancelled");
+        toast({ title: "Transaction cancelled", variant: "info" });
       },
     });
   };
@@ -160,9 +186,15 @@ export function useStreamContract() {
       postConditionMode: PostConditionMode.Allow,
       onFinish: (data) => {
         console.log("Stream resumed:", data);
+        toast({
+          title: "Stream resume initiated",
+          description: "Transaction submitted to the network",
+          variant: "success",
+        });
       },
       onCancel: () => {
         console.log("Transaction cancelled");
+        toast({ title: "Transaction cancelled", variant: "info" });
       },
     });
   };
