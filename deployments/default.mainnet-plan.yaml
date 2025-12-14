@@ -1,0 +1,18 @@
+---
+id: 0
+name: Mainnet deployment
+network: mainnet
+stacks-node: "https://api.hiro.so"
+bitcoin-node: "http://blockstack:blockstacksystem@bitcoin.blockstack.com:8332"
+plan:
+  batches:
+    - id: 0
+      transactions:
+        - contract-publish:
+            contract-name: stream-manager
+            expected-sender: SP3R3SX667CWE61113X23CAQ03SZXXZ3D8D3A4NFH
+            cost: 730704
+            path: contracts/stream-manager.clar
+            anchor-block-only: true
+            clarity-version: 4
+      epoch: "3.3"
