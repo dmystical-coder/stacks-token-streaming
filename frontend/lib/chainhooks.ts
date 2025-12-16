@@ -24,3 +24,33 @@ export function parseWithdrawalEvent(data: any): WithdrawalEvent | null {
     timestamp: Number(data.timestamp)
   };
 }
+
+export function parseStreamCancelledEvent(data: any): StreamCancelledEvent | null {
+  if (data.event !== 'stream-cancelled') return null;
+  return {
+    event: 'stream-cancelled',
+    'stream-id': Number(data['stream-id']),
+    sender: data.sender,
+    timestamp: Number(data.timestamp)
+  };
+}
+
+export function parseStreamPausedEvent(data: any): StreamPausedEvent | null {
+  if (data.event !== 'stream-paused') return null;
+  return {
+    event: 'stream-paused',
+    'stream-id': Number(data['stream-id']),
+    sender: data.sender,
+    timestamp: Number(data.timestamp)
+  };
+}
+
+export function parseStreamResumedEvent(data: any): StreamResumedEvent | null {
+  if (data.event !== 'stream-resumed') return null;
+  return {
+    event: 'stream-resumed',
+    'stream-id': Number(data['stream-id']),
+    sender: data.sender,
+    timestamp: Number(data.timestamp)
+  };
+}
