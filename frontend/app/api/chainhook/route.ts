@@ -53,4 +53,22 @@ function handleContractLog(data: any) {
     console.log('Withdrawal:', withdrawal);
     return;
   }
+
+  const cancelled = parseStreamCancelledEvent(data);
+  if (cancelled) {
+    console.log('Stream Cancelled:', cancelled);
+    return;
+  }
+
+  const paused = parseStreamPausedEvent(data);
+  if (paused) {
+    console.log('Stream Paused:', paused);
+    return;
+  }
+
+  const resumed = parseStreamResumedEvent(data);
+  if (resumed) {
+    console.log('Stream Resumed:', resumed);
+    return;
+  }
 }
