@@ -89,3 +89,24 @@ export interface WithdrawalEvent {
   amount: number;
   timestamp: number;
 }
+
+export interface StreamCancelledEvent {
+  event: 'stream-cancelled';
+  'stream-id': number;
+  sender: string;
+  timestamp: number;
+}
+
+export interface StreamPausedEvent {
+  event: 'stream-paused';
+  'stream-id': number;
+  sender: string;
+  timestamp: number;
+}
+
+export interface StreamResumedEvent {
+  event: 'stream-resumed';
+  'stream-id': number;
+  sender: string;
+  timestamp: number;
+}
