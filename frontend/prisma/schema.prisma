@@ -2,10 +2,28 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client"
-  output   = "../lib/generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Stream {
+  id              Int      @id
+  sender          String
+  recipient       String
+  tokenAmount     Float
+  startTime       Int
+  endTime         Int
+  withdrawnAmount Float    @default(0)
+  isCancelled     Boolean  @default(false)
+  isPaused        Boolean  @default(false)
+  pausedAt        Int      @default(0)
+  totalPausedDuration Int  @default(0)
+  createdAtBlock  Int
+  tokenType       String   @default("STX")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
