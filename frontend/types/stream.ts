@@ -1,4 +1,5 @@
 export interface Stream {
+  id?: number;
   sender: string;
   recipient: string;
   tokenAmount: number;
