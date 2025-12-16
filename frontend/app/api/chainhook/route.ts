@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ChainhookPayload } from '@/types/chainhook';
+import { ChainhookPayload, TransactionEvent } from '@/types/chainhook';
 
 export async function POST(req: NextRequest) {
   const body: ChainhookPayload = await req.json();
@@ -14,7 +14,6 @@ export async function POST(req: NextRequest) {
   for (const apply of body.apply) {
     for (const tx of apply.transactions) {
       if (tx.metadata.receipt.status === 'success') {
-        // Process successful transactions
         processTransaction(tx);
       }
     }
@@ -23,6 +22,17 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ status: 'ok' }, { status: 200 });
 }
 
-function processTransaction(tx: any) {
-  // Placeholder for processing logic
+function processTransaction(tx: TransactionEvent) {
+  if (tx.metadata.receipt.events) {
+    for (const event of tx.metadata.receipt.events) {
+      if (event.type === 'smart_contract_log') {
+        // This is a print event
+        handleContractLog(event.data);
+      }
+    }
+  }
+}
+
+function handleContractLog(data: any) {
+  // Dispatch based on event type
 }
