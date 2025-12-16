@@ -81,3 +81,11 @@ export interface StreamCreatedEvent {
   'token-type': string;
   timestamp: number;
 }
+
+export interface WithdrawalEvent {
+  event: 'withdrawal';
+  'stream-id': number;
+  recipient: string;
+  amount: number;
+  timestamp: number;
+}
