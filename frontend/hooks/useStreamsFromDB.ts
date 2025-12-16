@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Stream } from '@/types/stream';
 
 export function useStreamsFromDB(userAddress: string | null) {
@@ -6,36 +6,40 @@ export function useStreamsFromDB(userAddress: string | null) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function fetchStreams() {
-      if (!userAddress) {
-        setStreams([]);
-        setLoading(false);
-        return;
-      }
-
-      try {
-        setLoading(true);
-        const res = await fetch(`/api/streams?address=${userAddress}`);
-        if (!res.ok) throw new Error('Failed to fetch streams');
-        
-        const data = await res.json();
-        
-        // Map Prisma DB model to Stream interface if necessary
-        // Assuming the DB model fields largely match the frontend Stream type
-        // We might need to handle slight field mismatches here
-        setStreams(data);
-      } catch (err) {
-        console.error(err);
-        setError('Failed to load streams from database');
-      } finally {
-        setLoading(false);
-      }
+  const fetchStreams = useCallback(async () => {
+    if (!userAddress) {
+      setStreams([]);
+      setLoading(false);
+      return;
     }
 
-    fetchStreams();
+    try {
+      setLoading(true);
+      const res = await fetch(`/api/streams?address=${userAddress}`);
+      if (!res.ok) throw new Error('Failed to fetch streams');
+      
+      const data = await res.json();
+      
+      // Transform DB data to frontend Stream type
+      // Note: DB uses float for amounts, contract uses integers (microSTX)
+      // We should ensure types align. DB `tokenAmount` is Float.
+      const mappedStreams: Stream[] = data.map((s: any) => ({
+        ...s,
+        // Ensure strictly typed fields if needed
+      }));
+
+      setStreams(mappedStreams);
+    } catch (err) {
+      console.error(err);
+      setError('Failed to load streams from database');
+    } finally {
+      setLoading(false);
+    }
   }, [userAddress]);
 
-  return { streams, loading, error, refresh: () => setStreams([]) }; // Simplified refresh for now
-}
+  useEffect(() => {
+    fetchStreams();
+  }, [fetchStreams]);
 
+  return { streams, loading, error, refresh: fetchStreams };
+}
