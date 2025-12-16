@@ -33,7 +33,7 @@ export interface TransactionEvent {
   transaction_identifier: {
     hash: string;
   };
-  operations: any[]; // We will refine this later
+  operations: Operation[];
   metadata: {
     sender: string;
     kind: {
@@ -42,6 +42,20 @@ export interface TransactionEvent {
     };
     receipt: {
       status: string;
+    };
+  };
+}
+
+export interface Operation {
+  type: string;
+  account: {
+    address: string;
+  };
+  amount: {
+    value: string;
+    currency: {
+      symbol: string;
+      decimals: number;
     };
   };
 }
