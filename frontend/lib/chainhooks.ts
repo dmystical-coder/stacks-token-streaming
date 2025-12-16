@@ -14,3 +14,13 @@ export function parseStreamCreatedEvent(data: any): StreamCreatedEvent | null {
   };
 }
 
+export function parseWithdrawalEvent(data: any): WithdrawalEvent | null {
+  if (data.event !== 'withdrawal') return null;
+  return {
+    event: 'withdrawal',
+    'stream-id': Number(data['stream-id']),
+    recipient: data.recipient,
+    amount: Number(data.amount),
+    timestamp: Number(data.timestamp)
+  };
+}
