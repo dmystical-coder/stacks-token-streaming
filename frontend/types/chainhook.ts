@@ -28,3 +28,20 @@ export interface BlockIdentifier {
   index: number;
   hash: string;
 }
+
+export interface TransactionEvent {
+  transaction_identifier: {
+    hash: string;
+  };
+  operations: any[]; // We will refine this later
+  metadata: {
+    sender: string;
+    kind: {
+      type: string;
+      data: any;
+    };
+    receipt: {
+      status: string;
+    };
+  };
+}
