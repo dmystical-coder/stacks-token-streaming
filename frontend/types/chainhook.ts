@@ -70,3 +70,14 @@ export interface StacksTransactionEvent {
     type: string; // e.g. "tuple"
   };
 }
+
+export interface StreamCreatedEvent {
+  event: 'stream-created';
+  'stream-id': number;
+  sender: string;
+  recipient: string;
+  amount: number;
+  duration: number;
+  'token-type': string;
+  timestamp: number;
+}
