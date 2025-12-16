@@ -1,0 +1,21 @@
+{
+  "name": "stream-withdraw-event",
+  "version": 1,
+  "chain": "stacks",
+  "networks": {
+    "testnet": {
+      "if_this": {
+        "scope": "contract_call",
+        "contract_identifier": "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.stream-manager",
+        "method": "withdraw-from-stream"
+      },
+      "then_that": {
+        "http_post": {
+          "url": "http://localhost:3000/api/chainhook",
+          "authorization_header": "Bearer secret-token"
+        }
+      }
+    }
+  }
+}
+
