@@ -42,6 +42,7 @@ export interface TransactionEvent {
     };
     receipt: {
       status: string;
+      events: StacksTransactionEvent[];
     };
   };
 }
@@ -57,5 +58,15 @@ export interface Operation {
       symbol: string;
       decimals: number;
     };
+  };
+}
+
+export interface StacksTransactionEvent {
+  type: string;
+  transaction_identifier: string;
+  contract_identifier?: string;
+  data?: {
+    value: any;
+    type: string; // e.g. "tuple"
   };
 }
