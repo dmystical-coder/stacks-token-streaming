@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ChainhookPayload, TransactionEvent } from '@/types/chainhook';
+import { 
+  parseStreamCreatedEvent, 
+  parseWithdrawalEvent, 
+  parseStreamCancelledEvent, 
+  parseStreamPausedEvent, 
+  parseStreamResumedEvent 
+} from '@/lib/chainhooks';
 
 export async function POST(req: NextRequest) {
   const body: ChainhookPayload = await req.json();
@@ -26,13 +33,24 @@ function processTransaction(tx: TransactionEvent) {
   if (tx.metadata.receipt.events) {
     for (const event of tx.metadata.receipt.events) {
       if (event.type === 'smart_contract_log') {
-        // This is a print event
-        handleContractLog(event.data);
+        handleContractLog(event.data?.value);
       }
     }
   }
 }
 
 function handleContractLog(data: any) {
-  // Dispatch based on event type
+  if (!data) return;
+
+  const streamCreated = parseStreamCreatedEvent(data);
+  if (streamCreated) {
+    console.log('Stream Created:', streamCreated);
+    return;
+  }
+
+  const withdrawal = parseWithdrawalEvent(data);
+  if (withdrawal) {
+    console.log('Withdrawal:', withdrawal);
+    return;
+  }
 }
