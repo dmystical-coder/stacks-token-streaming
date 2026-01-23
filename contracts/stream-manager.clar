@@ -495,3 +495,19 @@
     ;; This enables trustless verification of partner contracts
     (ok (contract-hash? contract-principal))
 )
+
+;; ===================================
+;; Contract Initialization Event
+;; ===================================
+
+;; Emitted once when contract is deployed
+(print {
+    event: "streaming-contract-deployed",
+    deployer: CONTRACT_OWNER,
+    version: "1.0.0",
+    timestamp: stacks-block-time,
+    block-height: stacks-block-height,
+    features: "clarity-4, stx-streaming, pause-resume, cancellable",
+    max-duration: MAX_DURATION,
+    min-amount: MIN_AMOUNT
+})
