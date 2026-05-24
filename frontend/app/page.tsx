@@ -10,14 +10,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
 import { StreamFilter } from "@/types/stream";
 import { Plus, RefreshCw, Waves, Wallet } from "lucide-react";
-import { useStreamsFromDB } from "@/hooks/useStreamsFromDB";
+import { useStreamsFromChain } from "@/hooks/useStreamsFromChain";
 
 export default function Home() {
   const { isSignedIn, userAddress } = useAuth();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [filter, setFilter] = useState<StreamFilter>("all");
 
-  const { streams, loading, refresh } = useStreamsFromDB(userAddress);
+  const { streams, loading, refresh } = useStreamsFromChain(userAddress);
 
   const filteredStreams = streams.filter((stream) => {
     if (filter === "all") return true;
