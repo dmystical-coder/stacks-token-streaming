@@ -1,6 +1,2 @@
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
-
-export default prisma;
-
+// Prisma client initialization
+// This will be set up when database integration is needed
