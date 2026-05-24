@@ -49,7 +49,9 @@ export function useWalletData(address: string | null) {
   }, [address]);
 
   useEffect(() => {
-    fetchData();
+    fetchData().catch(err => {
+      console.error('Unhandled error in fetchData:', err);
+    });
   }, [fetchData]);
 
   return {

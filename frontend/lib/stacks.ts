@@ -1,29 +1,25 @@
-import { cvToJSON, ClarityValue } from "@stacks/transactions";
-import { STACKS_MAINNET, STACKS_TESTNET } from "@stacks/network";
+import {
+  uintCV,
+  principalCV,
+  contractPrincipalCV,
+  cvToJSON,
+  ClarityValue,
+} from "@stacks/transactions";
+import { IS_MAINNET } from "./network";
 
-// Network detection
-const IS_MAINNET = process.env.NEXT_PUBLIC_NETWORK === "mainnet";
-
-// Contract details - Auto-configured based on environment
+// Contract details
 export const CONTRACT_ADDRESS = IS_MAINNET
-  ? process.env.NEXT_PUBLIC_MAINNET_CONTRACT_ADDRESS ||
-    "SP3R3SX667CWE61113X23CAQ03SZXXZ3D8D3A4NFH"
-  : process.env.NEXT_PUBLIC_TESTNET_CONTRACT_ADDRESS ||
-    "ST3R3SX667CWE61113X23CAQ03SZXXZ3D8C2MR7YY";
+  ? "SP3R3SX667CWE61113X23CAQ03SZXXZ3D8D3A4NFH"
+  : "ST3R3SX667CWE61113X23CAQ03SZXXZ3D8C2MR7YY";
 
-export const CONTRACT_NAME = IS_MAINNET
-  ? process.env.NEXT_PUBLIC_MAINNET_CONTRACT_NAME || "stream-manager"
-  : process.env.NEXT_PUBLIC_TESTNET_CONTRACT_NAME || "stream-manager";
+export const CONTRACT_NAME = "stream-manager";
 
 // Network configuration
-export const NETWORK = IS_MAINNET ? "mainnet" : "testnet";
-export const NETWORK_NAME = NETWORK;
+export const NETWORK = IS_MAINNET ? ("mainnet" as const) : ("testnet" as const);
+
 export const NETWORK_URL = IS_MAINNET
   ? "https://api.hiro.so"
   : "https://api.testnet.hiro.so";
-
-// Network instance for transactions
-export const NETWORK_INSTANCE = IS_MAINNET ? STACKS_MAINNET : STACKS_TESTNET;
 
 // Helper to convert CV to readable format
 export function parseCV(cv: ClarityValue) {

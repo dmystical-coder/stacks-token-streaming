@@ -1,119 +1,67 @@
-"use client";
+'use client';
 
-import {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  ReactNode,
-  useCallback,
-} from "react";
-import {
-  connect,
-  isConnected,
-  disconnect,
-  getLocalStorage,
-} from "@stacks/connect";
-import { NETWORK_NAME, NETWORK } from "@/lib/stacks";
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { AppConfig, UserSession, AuthOptions, authenticate } from '@stacks/connect';
+import { getNetworkAddress } from '@/lib/network';
 
 interface AuthContextType {
+  userSession: UserSession;
   isSignedIn: boolean;
   userAddress: string | null;
-  bnsName: string | null;
   signIn: () => void;
   signOut: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Determine expected address prefix based on network
-const IS_MAINNET = NETWORK === "mainnet";
-const EXPECTED_PREFIX = IS_MAINNET ? "SP" : "ST";
+const appConfig = new AppConfig(['store_write', 'publish_data']);
+const userSession = new UserSession({ appConfig });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isSignedIn, setIsSignedIn] = useState(false);
   const [userAddress, setUserAddress] = useState<string | null>(null);
-  const [bnsName, setBnsName] = useState<string | null>(null);
 
-  const fetchBnsName = useCallback(async (address: string) => {
-    try {
-      // Use the appropriate BNS API endpoint based on network
-      const bnsNetwork = IS_MAINNET ? "mainnet" : "testnet";
-      const response = await fetch(
-        `https://api.bnsv2.com/${bnsNetwork}/names/address/${address}/valid`
-      );
-      const data = await response.json();
-      if (data.names && data.names.length > 0) {
-        setBnsName(data.names[0].full_name);
-      } else {
-        setBnsName(null);
-      }
-    } catch (error) {
-      console.error("Error fetching BNS name:", error);
-      setBnsName(null);
+  useEffect(() => {
+    if (userSession.isUserSignedIn()) {
+      setIsSignedIn(true);
+      const address = getNetworkAddress(userSession);
+      setUserAddress(address || null);
     }
   }, []);
 
-  useEffect(() => {
-    if (isConnected()) {
-      const storageData = getLocalStorage();
-      if (
-        storageData &&
-        storageData.addresses &&
-        storageData.addresses.stx &&
-        storageData.addresses.stx.length > 0
-      ) {
-        const address = storageData.addresses.stx[0].address;
-        // Verify address matches the expected network prefix
-        if (address.startsWith(EXPECTED_PREFIX)) {
-          // Wrap in setTimeout to push to next tick, avoiding sync state update warning
-          setTimeout(() => {
-            setIsSignedIn(true);
-            setUserAddress(address);
-            fetchBnsName(address);
-          }, 0);
-        } else {
-          // If address doesn't match expected network, sign out
-          console.warn(
-            `Address ${address} does not match expected network (${NETWORK}). Expected prefix: ${EXPECTED_PREFIX}`
-          );
-          disconnect();
-          setIsSignedIn(false);
-          setUserAddress(null);
-          setBnsName(null);
-        }
-      }
-    }
-  }, [fetchBnsName]);
-
   const signIn = async () => {
     try {
-      const response = await connect({ network: NETWORK_NAME });
-      const stxAddressEntry = response.addresses.find(
-        (a) => a.symbol === "STX"
-      );
+      const authOptions: AuthOptions = {
+        appDetails: {
+          name: 'Token Streaming',
+          icon: typeof window !== 'undefined' ? window.location.origin + '/logo.png' : '',
+        },
+        redirectTo: '/',
+        onFinish: () => {
+          setIsSignedIn(true);
+          const address = getNetworkAddress(userSession);
+          setUserAddress(address || null);
+        },
+        onCancel: () => {
+          console.log('User cancelled wallet connection');
+        },
+        userSession,
+      };
 
-      if (stxAddressEntry) {
-        setIsSignedIn(true);
-        setUserAddress(stxAddressEntry.address);
-        fetchBnsName(stxAddressEntry.address);
-      }
+      await authenticate(authOptions);
     } catch (error) {
-      console.error("Error during sign in:", error);
+      console.error('Error during sign in:', error);
     }
   };
 
   const signOut = () => {
-    disconnect();
+    userSession.signUserOut();
     setIsSignedIn(false);
     setUserAddress(null);
-    setBnsName(null);
   };
 
   return (
-    <AuthContext.Provider
-      value={{ isSignedIn, userAddress, bnsName, signIn, signOut }}
-    >
+    <AuthContext.Provider value={{ userSession, isSignedIn, userAddress, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );
@@ -122,7 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
+    throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
 }

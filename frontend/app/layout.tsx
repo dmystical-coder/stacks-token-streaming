@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AuthProvider } from "@/contexts/AuthContext";
-import { ToastProvider } from "@/components/ui/toast";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -16,8 +15,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Token Streaming - Stream tokens over time",
-  description:
-    "Stream STX with vesting, pause/resume, and more on Stacks blockchain",
+  description: "Stream STX and SIP-010 tokens with vesting, pause/resume, and more on Stacks blockchain",
   other: {
     "talentapp:project_verification":
       "f00fb6cbe5c51de93c58e710bf6eb69002bba2b18385b3f8cfd41b01deeb312fb4740cc5d4cd7e632fdca3926619bed3f85555b6e4c823176ab2735dee10befb",
@@ -25,7 +23,7 @@ export const metadata: Metadata = {
 };
 
 // Prevent SSR for this layout since we use browser-only libraries
-export const dynamic = "force-dynamic";
+export const dynamic = 'force-dynamic';
 
 export default function RootLayout({
   children,
@@ -38,7 +36,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <AuthProvider>
-          <ToastProvider>{children}</ToastProvider>
+          {children}
         </AuthProvider>
       </body>
     </html>

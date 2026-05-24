@@ -2,7 +2,7 @@ import { STACKS_MAINNET, STACKS_TESTNET } from "@stacks/network";
 import { UserData } from "@stacks/connect";
 
 // Environment configuration
-export const IS_MAINNET = process.env.NEXT_PUBLIC_NETWORK === "mainnet";
+export const IS_MAINNET = process.env.NEXT_PUBLIC_NETWORK !== "testnet";
 export const IS_TESTNET = !IS_MAINNET;
 
 // Network instance
@@ -13,7 +13,7 @@ export const getContractConfig = () => {
   if (IS_MAINNET) {
     return {
       contractAddress: "SP3R3SX667CWE61113X23CAQ03SZXXZ3D8D3A4NFH",
-      contractName: "str",
+      contractName: "stream-manager",
       networkUrl: "https://api.hiro.so",
       explorerUrl: "https://explorer.hiro.so",
     };
