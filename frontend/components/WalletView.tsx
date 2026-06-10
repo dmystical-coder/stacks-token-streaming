@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Loader2, RefreshCw, ArrowUpRight, ArrowDownLeft, ExternalLink, Copy, Check } from 'lucide-react';
 import { microStxToStx, CONTRACT_ADDRESS, CONTRACT_NAME } from '@/lib/stacks';
+import { getTransactionUrl } from '@/lib/network';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -187,8 +188,8 @@ export function WalletView() {
                     </div>
                     
                     <div className="flex justify-end w-full sm:w-auto mt-2 sm:mt-0">
-                      <a 
-                        href={`https://explorer.hiro.so/txid/${tx.tx_id}?chain=mainnet`}
+                      <a
+                        href={getTransactionUrl(tx.tx_id)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-colors"

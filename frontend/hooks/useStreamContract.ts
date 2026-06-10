@@ -1,11 +1,79 @@
 'use client';
 
-import { uintCV, principalCV, AnchorMode, PostConditionMode, Pc } from '@stacks/transactions';
+import {
+  uintCV,
+  principalCV,
+  AnchorMode,
+  PostConditionMode,
+  Pc,
+  type PostCondition,
+  type ClarityValue,
+} from '@stacks/transactions';
 import { CONTRACT_ADDRESS, CONTRACT_NAME, NETWORK, stxToMicroStx, parseDurationToSeconds } from '@/lib/stacks';
+import { getTransactionUrl } from '@/lib/network';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/components/ui/toast';
+
+interface ContractCall {
+  functionName: string;
+  functionArgs: ClarityValue[];
+  postConditionMode: PostConditionMode;
+  postConditions?: PostCondition[];
+  /** Human label used in feedback, e.g. "Stream created". */
+  label: string;
+}
 
 export function useStreamContract() {
-  const { userSession, userAddress } = useAuth();
+  const { userAddress } = useAuth();
+  const { toast } = useToast();
+
+  // Single path for every contract call so submitted / cancelled / failed
+  // feedback is consistent. The wallet returns once the tx is broadcast, not
+  // mined, so success here means "submitted, pending confirmation".
+  const runContractCall = async ({
+    functionName,
+    functionArgs,
+    postConditionMode,
+    postConditions,
+    label,
+  }: ContractCall) => {
+    try {
+      const { openContractCall } = await import('@stacks/connect');
+      await openContractCall({
+        network: NETWORK,
+        anchorMode: AnchorMode.Any,
+        contractAddress: CONTRACT_ADDRESS,
+        contractName: CONTRACT_NAME,
+        functionName,
+        functionArgs,
+        postConditionMode,
+        postConditions,
+        onFinish: (data) => {
+          toast({
+            variant: 'success',
+            title: `${label} — submitted`,
+            description: data?.txId
+              ? `Pending confirmation · ${data.txId.slice(0, 8)}…${data.txId.slice(-6)}`
+              : 'Pending on-chain confirmation.',
+            duration: 8000,
+          });
+          if (data?.txId) {
+            console.log(`${label}:`, getTransactionUrl(data.txId));
+          }
+        },
+        onCancel: () => {
+          toast({ title: 'Transaction cancelled', variant: 'default' });
+        },
+      });
+    } catch (err) {
+      toast({
+        variant: 'error',
+        title: `${label} failed`,
+        description: err instanceof Error ? err.message : 'Could not submit transaction.',
+      });
+      throw err;
+    }
+  };
 
   const createStream = async (
     recipient: string,
@@ -17,112 +85,51 @@ export function useStreamContract() {
     const tokenAmount = stxToMicroStx(amount);
     const duration = parseDurationToSeconds(days, hours, minutes);
 
-    const postConditions = [];
+    const postConditions: PostCondition[] = [];
     if (userAddress) {
-      const postCondition = Pc.principal(userAddress)
-        .willSendEq(tokenAmount)
-        .ustx();
-      postConditions.push(postCondition);
+      postConditions.push(Pc.principal(userAddress).willSendEq(tokenAmount).ustx());
     }
 
-    const { openContractCall } = await import('@stacks/connect');
-    await openContractCall({
-      network: NETWORK,
-      anchorMode: AnchorMode.Any,
-      contractAddress: CONTRACT_ADDRESS,
-      contractName: CONTRACT_NAME,
+    await runContractCall({
+      label: 'Stream created',
       functionName: 'create-stream',
-      functionArgs: [
-        principalCV(recipient),
-        uintCV(tokenAmount),
-        uintCV(duration),
-      ],
+      functionArgs: [principalCV(recipient), uintCV(tokenAmount), uintCV(duration)],
       postConditionMode: PostConditionMode.Deny,
       postConditions,
-      onFinish: (data) => {
-        console.log('Stream created:', data);
-      },
-      onCancel: () => {
-        console.log('Transaction cancelled');
-      },
     });
   };
 
-  const withdrawFromStream = async (streamId: number) => {
-    const { openContractCall } = await import('@stacks/connect');
-    await openContractCall({
-      network: NETWORK,
-      anchorMode: AnchorMode.Any,
-      contractAddress: CONTRACT_ADDRESS,
-      contractName: CONTRACT_NAME,
+  const withdrawFromStream = (streamId: number) =>
+    runContractCall({
+      label: 'Withdrawal',
       functionName: 'withdraw-from-stream',
       functionArgs: [uintCV(streamId)],
       postConditionMode: PostConditionMode.Allow,
-      onFinish: (data) => {
-        console.log('Withdrawal successful:', data);
-      },
-      onCancel: () => {
-        console.log('Transaction cancelled');
-      },
     });
-  };
 
-  const cancelStream = async (streamId: number) => {
-    const { openContractCall } = await import('@stacks/connect');
-    await openContractCall({
-      network: NETWORK,
-      anchorMode: AnchorMode.Any,
-      contractAddress: CONTRACT_ADDRESS,
-      contractName: CONTRACT_NAME,
+  const cancelStream = (streamId: number) =>
+    runContractCall({
+      label: 'Stream cancelled',
       functionName: 'cancel-stream',
       functionArgs: [uintCV(streamId)],
       postConditionMode: PostConditionMode.Allow,
-      onFinish: (data) => {
-        console.log('Stream cancelled:', data);
-      },
-      onCancel: () => {
-        console.log('Transaction cancelled');
-      },
     });
-  };
 
-  const pauseStream = async (streamId: number) => {
-    const { openContractCall } = await import('@stacks/connect');
-    await openContractCall({
-      network: NETWORK,
-      anchorMode: AnchorMode.Any,
-      contractAddress: CONTRACT_ADDRESS,
-      contractName: CONTRACT_NAME,
+  const pauseStream = (streamId: number) =>
+    runContractCall({
+      label: 'Stream paused',
       functionName: 'pause-stream',
       functionArgs: [uintCV(streamId)],
       postConditionMode: PostConditionMode.Allow,
-      onFinish: (data) => {
-        console.log('Stream paused:', data);
-      },
-      onCancel: () => {
-        console.log('Transaction cancelled');
-      },
     });
-  };
 
-  const resumeStream = async (streamId: number) => {
-    const { openContractCall } = await import('@stacks/connect');
-    await openContractCall({
-      network: NETWORK,
-      anchorMode: AnchorMode.Any,
-      contractAddress: CONTRACT_ADDRESS,
-      contractName: CONTRACT_NAME,
+  const resumeStream = (streamId: number) =>
+    runContractCall({
+      label: 'Stream resumed',
       functionName: 'resume-stream',
       functionArgs: [uintCV(streamId)],
       postConditionMode: PostConditionMode.Allow,
-      onFinish: (data) => {
-        console.log('Stream resumed:', data);
-      },
-      onCancel: () => {
-        console.log('Transaction cancelled');
-      },
     });
-  };
 
   return {
     createStream,

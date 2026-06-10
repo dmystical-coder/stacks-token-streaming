@@ -48,13 +48,12 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             role="alert"
             aria-live="polite"
             className={cn(
-              "group bg-white dark:bg-zinc-900 border shadow-lg rounded-md p-4 data-[state=open]:animate-slide-in data-[state=closed]:animate-hide flex items-start gap-3 w-[320px]",
+              "group bg-popover text-popover-foreground border shadow-lg rounded-lg p-4 data-[state=open]:animate-slide-in data-[state=closed]:animate-hide flex items-start gap-3 w-[320px]",
               {
-                "border-blue-500": t.variant === "info",
-                "border-green-500": t.variant === "success",
-                "border-red-500": t.variant === "error",
-                "border-zinc-200 dark:border-zinc-800":
-                  !t.variant || t.variant === "default",
+                "border-primary/50": t.variant === "info",
+                "border-success/50": t.variant === "success",
+                "border-destructive/50": t.variant === "error",
+                "border-border": !t.variant || t.variant === "default",
               }
             )}
             onOpenChange={(open: boolean) => {
@@ -66,13 +65,13 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                 {t.title}
               </ToastPrimitive.Title>
               {t.description && (
-                <ToastPrimitive.Description className="text-sm text-zinc-600 dark:text-zinc-300 mt-1">
+                <ToastPrimitive.Description className="text-sm text-muted-foreground mt-1 break-words">
                   {t.description}
                 </ToastPrimitive.Description>
               )}
             </div>
             <ToastPrimitive.Close asChild>
-              <button className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200">
+              <button className="text-muted-foreground hover:text-foreground shrink-0">
                 <span className="sr-only">Close</span>✕
               </button>
             </ToastPrimitive.Close>
