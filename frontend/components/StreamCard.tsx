@@ -1,11 +1,17 @@
 'use client';
 
 import { Stream } from '@/types/stream';
-import { microStxToStx, formatDuration } from '@/lib/stacks';
 import { Button } from './ui/button';
 import { useStreamContract } from '@/hooks/useStreamContract';
 import { useAuth } from '@/contexts/AuthContext';
-import { Play, Pause, XCircle, Download, Clock, Coins, User } from 'lucide-react';
+import {
+  ArrowUpRight,
+  ArrowDownLeft,
+  Play,
+  Pause,
+  XCircle,
+  Download,
+} from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 interface StreamCardProps {
@@ -14,25 +20,79 @@ interface StreamCardProps {
   onUpdate: () => void;
 }
 
+type StreamStatusKey = 'scheduled' | 'active' | 'paused' | 'completed' | 'cancelled';
+
+const STATUS_BADGE: Record<StreamStatusKey, string> = {
+  active: 'bg-blue-50 text-blue-700 border-blue-200',
+  paused: 'bg-amber-50 text-amber-700 border-amber-200',
+  completed: 'bg-green-50 text-green-700 border-green-200',
+  cancelled: 'bg-red-50 text-red-500 border-red-200',
+  scheduled: 'bg-slate-100 text-slate-500 border-slate-200',
+};
+
+const PROGRESS_COLOR: Record<StreamStatusKey, string> = {
+  active: 'bg-blue-500',
+  paused: 'bg-amber-400',
+  completed: 'bg-green-500',
+  cancelled: 'bg-red-400',
+  scheduled: 'bg-slate-300',
+};
+
+function formatStx(microStx: number): string {
+  const stx = microStx / 1_000_000;
+  if (stx >= 10_000) return stx.toLocaleString('en', { maximumFractionDigits: 0 });
+  if (stx >= 100) return stx.toFixed(2);
+  if (stx >= 1) return stx.toFixed(3);
+  return stx.toFixed(6);
+}
+
+function formatRatePerDay(tokenAmount: number, durationSeconds: number): string {
+  if (durationSeconds <= 0) return '—';
+  const stxPerDay = (tokenAmount / durationSeconds / 1_000_000) * 86400;
+  if (stxPerDay >= 1000) return stxPerDay.toLocaleString('en', { maximumFractionDigits: 0 });
+  if (stxPerDay >= 10) return stxPerDay.toFixed(2);
+  if (stxPerDay >= 1) return stxPerDay.toFixed(3);
+  if (stxPerDay >= 0.01) return stxPerDay.toFixed(4);
+  return stxPerDay.toFixed(6);
+}
+
+function formatTimeRemaining(seconds: number): string {
+  if (seconds <= 0) return 'ended';
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  if (days > 0) return `${days}d ${hours}h left`;
+  if (hours > 0) return `${hours}h ${mins}m left`;
+  return `${mins}m left`;
+}
+
 export function StreamCard({ streamId, stream, onUpdate }: StreamCardProps) {
   const { userAddress } = useAuth();
-  const { withdrawFromStream, cancelStream, pauseStream, resumeStream } = useStreamContract();
+  const { withdrawFromStream, cancelStream, pauseStream, resumeStream } =
+    useStreamContract();
   const [loading, setLoading] = useState(false);
   const [availableBalance, setAvailableBalance] = useState(0);
   const [progress, setProgress] = useState(0);
+  const [timeRemaining, setTimeRemaining] = useState(0);
 
   const isSender = userAddress === stream.sender;
   const isRecipient = userAddress === stream.recipient;
+  const counterparty = isSender ? stream.recipient : stream.sender;
+  const duration = stream.endTime - stream.startTime;
+  const ratePerDay = formatRatePerDay(stream.tokenAmount, duration);
+  const totalStx = formatStx(stream.tokenAmount);
 
   useEffect(() => {
-    calculateAvailableBalance();
-    const interval = setInterval(calculateAvailableBalance, 10000); // Update every 10 seconds
+    computeState();
+    const interval = setInterval(computeState, 10_000);
     return () => clearInterval(interval);
   }, [stream]);
 
-  const calculateAvailableBalance = () => {
+  const computeState = () => {
     const now = Date.now() / 1000;
-    
+    const adjustedEndTime = stream.endTime + stream.totalPausedDuration;
+    setTimeRemaining(Math.max(0, adjustedEndTime - now));
+
     if (stream.isCancelled || stream.isPaused) {
       setAvailableBalance(0);
       return;
@@ -44,41 +104,39 @@ export function StreamCard({ streamId, stream, onUpdate }: StreamCardProps) {
       return;
     }
 
-    const adjustedElapsed = Math.max(0, now - stream.startTime - stream.totalPausedDuration);
+    const adjustedElapsed = Math.max(
+      0,
+      now - stream.startTime - stream.totalPausedDuration
+    );
     const totalDuration = stream.endTime - stream.startTime;
-    const adjustedEndTime = stream.endTime + stream.totalPausedDuration;
 
     if (now >= adjustedEndTime) {
-      const remaining = stream.tokenAmount - stream.withdrawnAmount;
-      setAvailableBalance(remaining);
+      setAvailableBalance(stream.tokenAmount - stream.withdrawnAmount);
       setProgress(100);
     } else {
-      const vestedAmount = (stream.tokenAmount * adjustedElapsed) / totalDuration;
-      const available = Math.max(0, vestedAmount - stream.withdrawnAmount);
-      setAvailableBalance(Math.floor(available));
+      const vested = (stream.tokenAmount * adjustedElapsed) / totalDuration;
+      setAvailableBalance(Math.floor(Math.max(0, vested - stream.withdrawnAmount)));
       setProgress((adjustedElapsed / totalDuration) * 100);
     }
   };
 
-  const getStatus = () => {
-    if (stream.isCancelled) return { label: 'Cancelled', color: 'text-red-600' };
-    if (stream.isPaused) return { label: 'Paused', color: 'text-yellow-600' };
-    
+  const getStatus = (): StreamStatusKey => {
+    if (stream.isCancelled) return 'cancelled';
+    if (stream.isPaused) return 'paused';
     const now = Date.now() / 1000;
     const adjustedEndTime = stream.endTime + stream.totalPausedDuration;
-    
-    if (now >= adjustedEndTime) return { label: 'Completed', color: 'text-green-600' };
-    if (now >= stream.startTime) return { label: 'Active', color: 'text-blue-600' };
-    return { label: 'Scheduled', color: 'text-zinc-500' };
+    if (now >= adjustedEndTime) return 'completed';
+    if (now >= stream.startTime) return 'active';
+    return 'scheduled';
   };
 
   const handleAction = async (action: () => Promise<void>) => {
     setLoading(true);
     try {
       await action();
-      setTimeout(onUpdate, 2000); // Refresh after 2 seconds
-    } catch (error) {
-      console.error('Action failed:', error);
+      setTimeout(onUpdate, 2000);
+    } catch (err) {
+      console.error('Action failed:', err);
     } finally {
       setLoading(false);
     }
@@ -87,122 +145,143 @@ export function StreamCard({ streamId, stream, onUpdate }: StreamCardProps) {
   const status = getStatus();
 
   return (
-    <div className="border border-zinc-200 dark:border-zinc-800 rounded-lg p-6 hover:shadow-lg transition-shadow">
-      <div className="flex justify-between items-start mb-4">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <h3 className="text-lg font-semibold">Stream #{streamId}</h3>
-            <span className={`text-sm font-medium ${status.color}`}>
-              {status.label}
-            </span>
-          </div>
-          <p className="text-sm text-zinc-500">
-            {stream.tokenType === 'STX' ? 'STX Stream' : 'SIP-010 Token Stream'}
-          </p>
+    <div className="bg-white border border-slate-200 rounded-xl px-5 py-4 hover:border-slate-300 hover:shadow-sm transition-all">
+      {/* Row 1: stream ID + direction/address + status badge */}
+      <div className="flex items-center gap-3 mb-3">
+        <span
+          className="font-mono text-xs text-slate-400 shrink-0"
+          style={{ fontVariantNumeric: 'tabular-nums' }}
+        >
+          #{streamId}
+        </span>
+
+        <div className="flex items-center gap-1.5 flex-1 min-w-0">
+          {isSender ? (
+            <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+          ) : (
+            <ArrowDownLeft className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+          )}
+          <span className="font-mono text-xs text-slate-500 truncate">
+            {counterparty.slice(0, 10)}…{counterparty.slice(-6)}
+          </span>
         </div>
-        <div className="text-right">
-          <div className="text-2xl font-bold">
-            {microStxToStx(stream.tokenAmount)} STX
-          </div>
-          <div className="text-sm text-zinc-500">
-            {microStxToStx(stream.withdrawnAmount)} withdrawn
-          </div>
-        </div>
+
+        <span
+          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border capitalize shrink-0 ${STATUS_BADGE[status]}`}
+          style={{ letterSpacing: '0.06em', textTransform: 'uppercase' }}
+        >
+          {status}
+        </span>
       </div>
 
-      <div className="space-y-3 mb-4">
-        <div className="flex items-center gap-2 text-sm">
-          <User className="w-4 h-4 text-zinc-500" />
-          <span className="text-zinc-500">From:</span>
-          <span className="font-mono">{stream.sender.slice(0, 8)}...{stream.sender.slice(-6)}</span>
-        </div>
-        <div className="flex items-center gap-2 text-sm">
-          <User className="w-4 h-4 text-zinc-500" />
-          <span className="text-zinc-500">To:</span>
-          <span className="font-mono">{stream.recipient.slice(0, 8)}...{stream.recipient.slice(-6)}</span>
-        </div>
-        <div className="flex items-center gap-2 text-sm">
-          <Clock className="w-4 h-4 text-zinc-500" />
-          <span className="text-zinc-500">Duration:</span>
-          <span>{formatDuration(stream.endTime - stream.startTime)}</span>
-        </div>
-        {availableBalance > 0 && (
-          <div className="flex items-center gap-2 text-sm">
-            <Coins className="w-4 h-4 text-green-600" />
-            <span className="text-zinc-500">Available:</span>
-            <span className="font-semibold text-green-600">
-              {microStxToStx(availableBalance)} STX
-            </span>
-          </div>
-        )}
+      {/* Row 2: rate (primary metric) + total */}
+      <div className="flex items-baseline gap-2 mb-3">
+        <span
+          className="font-mono text-2xl font-semibold text-slate-900 leading-none"
+          style={{ fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.01em' }}
+        >
+          {ratePerDay}
+        </span>
+        <span className="text-sm text-slate-400 leading-none">STX/day</span>
+        <span className="text-slate-200 mx-0.5">·</span>
+        <span
+          className="font-mono text-sm text-slate-500"
+          style={{ fontVariantNumeric: 'tabular-nums' }}
+        >
+          {totalStx} STX total
+        </span>
       </div>
 
-      {/* Progress Bar */}
-      <div className="mb-4">
-        <div className="flex justify-between text-xs text-zinc-500 mb-1">
-          <span>Progress</span>
-          <span>{progress.toFixed(1)}%</span>
+      {/* Row 3: progress bar + time/pct */}
+      <div className="mb-3.5">
+        <div className="flex justify-between items-center mb-1.5">
+          <span
+            className="font-mono text-xs text-slate-400"
+            style={{ fontVariantNumeric: 'tabular-nums' }}
+          >
+            {progress.toFixed(1)}%
+          </span>
+          <span className="text-xs text-slate-400">
+            {status === 'active' || status === 'scheduled'
+              ? formatTimeRemaining(timeRemaining)
+              : status === 'completed'
+              ? 'Completed'
+              : status === 'paused'
+              ? 'Paused'
+              : 'Cancelled'}
+          </span>
         </div>
-        <div className="w-full bg-zinc-200 dark:bg-zinc-800 rounded-full h-2">
-          <div 
-            className="bg-blue-600 h-2 rounded-full transition-all duration-500"
+        <div className="w-full bg-slate-100 rounded-full h-1.5">
+          <div
+            className={`h-1.5 rounded-full transition-all duration-700 ${PROGRESS_COLOR[status]}`}
             style={{ width: `${Math.min(progress, 100)}%` }}
           />
         </div>
       </div>
 
-      {/* Action Buttons */}
-      <div className="flex gap-2 flex-wrap">
-        {isRecipient && !stream.isCancelled && !stream.isPaused && availableBalance > 0 && (
-          <Button
-            onClick={() => handleAction(() => withdrawFromStream(streamId))}
-            disabled={loading}
-            size="sm"
-            className="gap-2"
+      {/* Row 4: available badge + actions */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {availableBalance > 0 && isRecipient && (
+          <span
+            className="text-xs text-green-700 font-mono font-medium bg-green-50 px-2 py-1 rounded-md border border-green-200"
+            style={{ fontVariantNumeric: 'tabular-nums' }}
           >
-            <Download className="w-4 h-4" />
-            Withdraw
-          </Button>
+            {formatStx(availableBalance)} STX available
+          </span>
         )}
 
-        {isSender && !stream.isCancelled && (
-          <>
-            {stream.isPaused ? (
+        <div className="flex gap-1.5 ml-auto">
+          {isRecipient &&
+            !stream.isCancelled &&
+            !stream.isPaused &&
+            availableBalance > 0 && (
               <Button
-                onClick={() => handleAction(() => resumeStream(streamId))}
+                onClick={() => handleAction(() => withdrawFromStream(streamId))}
                 disabled={loading}
                 size="sm"
-                variant="outline"
-                className="gap-2"
+                className="h-7 px-3 text-xs bg-blue-700 hover:bg-blue-800 text-white gap-1.5"
               >
-                <Play className="w-4 h-4" />
-                Resume
-              </Button>
-            ) : status.label !== 'Completed' && (
-              <Button
-                onClick={() => handleAction(() => pauseStream(streamId))}
-                disabled={loading}
-                size="sm"
-                variant="outline"
-                className="gap-2"
-              >
-                <Pause className="w-4 h-4" />
-                Pause
+                <Download className="w-3 h-3" />
+                Withdraw
               </Button>
             )}
-            
-            <Button
-              onClick={() => handleAction(() => cancelStream(streamId))}
-              disabled={loading}
-              size="sm"
-              variant="destructive"
-              className="gap-2"
-            >
-              <XCircle className="w-4 h-4" />
-              Cancel
-            </Button>
-          </>
-        )}
+
+          {isSender && !stream.isCancelled && status !== 'completed' && (
+            <>
+              {stream.isPaused ? (
+                <Button
+                  onClick={() => handleAction(() => resumeStream(streamId))}
+                  disabled={loading}
+                  size="sm"
+                  variant="outline"
+                  className="h-7 px-3 text-xs gap-1.5 border-slate-200 text-slate-600"
+                >
+                  <Play className="w-3 h-3" />
+                  Resume
+                </Button>
+              ) : (
+                <Button
+                  onClick={() => handleAction(() => pauseStream(streamId))}
+                  disabled={loading}
+                  size="sm"
+                  variant="outline"
+                  className="h-7 px-3 text-xs gap-1.5 border-slate-200 text-slate-600"
+                >
+                  <Pause className="w-3 h-3" />
+                  Pause
+                </Button>
+              )}
+              <button
+                onClick={() => handleAction(() => cancelStream(streamId))}
+                disabled={loading}
+                title="Cancel stream"
+                className="h-7 w-7 flex items-center justify-center rounded-md text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40"
+              >
+                <XCircle className="w-4 h-4" />
+              </button>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
