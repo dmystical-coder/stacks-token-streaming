@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { NETWORK_URL } from '@/lib/stacks';
+import { onRevalidate } from '@/lib/revalidate';
 
 // Background refresh cadence for balance + activity.
 const POLL_MS = 15_000;
@@ -93,6 +94,12 @@ export function useWalletData(address: string | null) {
       document.removeEventListener('visibilitychange', onVisibility);
     };
   }, [address, fetchData]);
+
+  // Refetch the instant a tx for this address confirms on-chain.
+  useEffect(
+    () => onRevalidate(() => { fetchData({ silent: true }).catch(() => {}); }),
+    [fetchData]
+  );
 
   return {
     balance,
