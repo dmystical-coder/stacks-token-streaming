@@ -4,6 +4,10 @@ import { fetchCallReadOnlyFunction, standardPrincipalCV, uintCV, cvToValue } fro
 import { NETWORK_INSTANCE } from '@/lib/network';
 import { CONTRACT_ADDRESS, CONTRACT_NAME } from '@/lib/stacks';
 
+// How often to silently re-read streams from chain so the UI reflects new
+// streams, confirmed withdrawals, and status changes without a manual refresh.
+const POLL_MS = 15_000;
+
 export function useStreamsFromChain(userAddress: string | null) {
   const [streams, setStreams] = useState<Stream[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,65 +50,100 @@ export function useStreamsFromChain(userAddress: string | null) {
     }
   };
 
-  const fetchStreams = useCallback(async () => {
-    if (!userAddress) {
-      setStreams([]);
-      setLoading(false);
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setError(null);
-
-      const [senderResult, recipientResult] = await Promise.all([
-        fetchCallReadOnlyFunction({
-          contractAddress: CONTRACT_ADDRESS,
-          contractName: CONTRACT_NAME,
-          functionName: 'get-streams-by-sender',
-          functionArgs: [standardPrincipalCV(userAddress)],
-          network: NETWORK_INSTANCE,
-          senderAddress: userAddress,
-        }),
-        fetchCallReadOnlyFunction({
-          contractAddress: CONTRACT_ADDRESS,
-          contractName: CONTRACT_NAME,
-          functionName: 'get-streams-by-recipient',
-          functionArgs: [standardPrincipalCV(userAddress)],
-          network: NETWORK_INSTANCE,
-          senderAddress: userAddress,
-        })
-      ]);
-
-      const senderData = cvToValue(senderResult);
-      const recipientData = cvToValue(recipientResult);
-
-      const senderIds = senderData?.value?.value?.['stream-ids']?.value?.map((id: { value: string }) => Number(id.value)) || [];
-      const recipientIds = recipientData?.value?.value?.['stream-ids']?.value?.map((id: { value: string }) => Number(id.value)) || [];
-
-      const allIds = Array.from(new Set([...senderIds, ...recipientIds]));
-
-      if (allIds.length === 0) {
+  // `silent` polls don't toggle the loading flag and don't wipe the list on
+  // error, so background refreshes never flash skeletons or blank the view.
+  const fetchStreams = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      const silent = opts?.silent ?? false;
+      if (!userAddress) {
         setStreams([]);
+        setLoading(false);
         return;
       }
 
-      const streamPromises = allIds.map(id => fetchStreamDetails(id));
-      const fetched = (await Promise.all(streamPromises)).filter((s): s is Stream => s !== null);
-      setStreams(fetched.sort((a, b) => (b.id || 0) - (a.id || 0)));
-    } catch (err) {
-      console.error('Error fetching streams from chain:', err);
-      if (err instanceof Error) setError(err.message);
-      setStreams([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [userAddress]);
+      try {
+        if (!silent) setLoading(true);
+        setError(null);
+
+        const [senderResult, recipientResult] = await Promise.all([
+          fetchCallReadOnlyFunction({
+            contractAddress: CONTRACT_ADDRESS,
+            contractName: CONTRACT_NAME,
+            functionName: 'get-streams-by-sender',
+            functionArgs: [standardPrincipalCV(userAddress)],
+            network: NETWORK_INSTANCE,
+            senderAddress: userAddress,
+          }),
+          fetchCallReadOnlyFunction({
+            contractAddress: CONTRACT_ADDRESS,
+            contractName: CONTRACT_NAME,
+            functionName: 'get-streams-by-recipient',
+            functionArgs: [standardPrincipalCV(userAddress)],
+            network: NETWORK_INSTANCE,
+            senderAddress: userAddress,
+          })
+        ]);
+
+        const senderData = cvToValue(senderResult);
+        const recipientData = cvToValue(recipientResult);
+
+        const senderIds = senderData?.value?.value?.['stream-ids']?.value?.map((id: { value: string }) => Number(id.value)) || [];
+        const recipientIds = recipientData?.value?.value?.['stream-ids']?.value?.map((id: { value: string }) => Number(id.value)) || [];
+
+        const allIds = Array.from(new Set([...senderIds, ...recipientIds]));
+
+        if (allIds.length === 0) {
+          setStreams([]);
+          return;
+        }
+
+        const streamPromises = allIds.map(id => fetchStreamDetails(id));
+        const fetched = (await Promise.all(streamPromises)).filter((s): s is Stream => s !== null);
+        setStreams(fetched.sort((a, b) => (b.id || 0) - (a.id || 0)));
+      } catch (err) {
+        console.error('Error fetching streams from chain:', err);
+        if (err instanceof Error) setError(err.message);
+        if (!silent) setStreams([]);
+      } finally {
+        if (!silent) setLoading(false);
+      }
+    },
+    [userAddress]
+  );
 
   useEffect(() => {
-    fetchStreams().catch(err => {
-      console.error('Unhandled error in fetchStreams:', err);
-    });
+    let intervalId: ReturnType<typeof setInterval> | undefined;
+    const stop = () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+        intervalId = undefined;
+      }
+    };
+    const start = () => {
+      stop();
+      intervalId = setInterval(() => {
+        fetchStreams({ silent: true }).catch(() => {});
+      }, POLL_MS);
+    };
+
+    fetchStreams().catch(() => {});
+    start();
+
+    // Pause polling while the tab is hidden; refetch immediately on return.
+    const onVisibility = () => {
+      if (document.hidden) {
+        stop();
+      } else {
+        fetchStreams({ silent: true }).catch(() => {});
+        start();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+
+    return () => {
+      stop();
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
   }, [fetchStreams]);
 
   return { streams, loading, error, refresh: fetchStreams };

@@ -3,6 +3,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { NETWORK_URL } from '@/lib/stacks';
 
+// Background refresh cadence for balance + activity.
+const POLL_MS = 15_000;
+
 interface StxBalance {
   balance: string;
   total_sent: string;
@@ -27,37 +30,74 @@ export function useWalletData(address: string | null) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const fetchData = useCallback(async () => {
-    if (!address) return;
+  const fetchData = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      if (!address) return;
+      const silent = opts?.silent ?? false;
 
-    setLoading(true);
-    try {
-      // Fetch Balance
-      const balanceRes = await fetch(`${NETWORK_URL}/extended/v1/address/${address}/balances`);
-      const balanceData = await balanceRes.json();
-      setBalance(balanceData.stx);
+      if (!silent) setLoading(true);
+      try {
+        const balanceRes = await fetch(`${NETWORK_URL}/extended/v1/address/${address}/balances`);
+        const balanceData = await balanceRes.json();
+        setBalance(balanceData.stx);
 
-      // Fetch Transactions
-      const txRes = await fetch(`${NETWORK_URL}/extended/v1/address/${address}/transactions?limit=50`);
-      const txData = await txRes.json();
-      setTransactions(txData.results);
-    } catch (error) {
-      console.error('Error fetching wallet data:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [address]);
+        const txRes = await fetch(`${NETWORK_URL}/extended/v1/address/${address}/transactions?limit=50`);
+        const txData = await txRes.json();
+        setTransactions(txData.results);
+      } catch (error) {
+        // Background polls keep the last good data rather than blanking it.
+        console.error('Error fetching wallet data:', error);
+      } finally {
+        if (!silent) setLoading(false);
+      }
+    },
+    [address]
+  );
 
   useEffect(() => {
-    fetchData().catch(err => {
-      console.error('Unhandled error in fetchData:', err);
-    });
-  }, [fetchData]);
+    if (!address) {
+      setBalance(null);
+      setTransactions([]);
+      return;
+    }
+
+    let intervalId: ReturnType<typeof setInterval> | undefined;
+    const stop = () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+        intervalId = undefined;
+      }
+    };
+    const start = () => {
+      stop();
+      intervalId = setInterval(() => {
+        fetchData({ silent: true }).catch(() => {});
+      }, POLL_MS);
+    };
+
+    fetchData().catch(() => {});
+    start();
+
+    const onVisibility = () => {
+      if (document.hidden) {
+        stop();
+      } else {
+        fetchData({ silent: true }).catch(() => {});
+        start();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+
+    return () => {
+      stop();
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [address, fetchData]);
 
   return {
     balance,
     transactions,
     loading,
-    refresh: fetchData
+    refresh: fetchData,
   };
 }

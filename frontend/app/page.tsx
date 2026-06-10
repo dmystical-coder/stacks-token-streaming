@@ -271,7 +271,7 @@ export default function Home() {
 
               <div className="flex shrink-0 gap-2">
                 <Button
-                  onClick={refresh}
+                  onClick={() => refresh()}
                   variant="outline"
                   size="sm"
                   disabled={loading}

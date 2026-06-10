@@ -105,7 +105,7 @@ export function WalletView() {
         <Button
           variant="outline"
           size="sm"
-          onClick={refresh}
+          onClick={() => refresh()}
           disabled={loading}
           className="h-8 gap-1.5 self-start text-xs sm:self-auto"
         >
