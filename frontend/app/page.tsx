@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ConnectWallet } from "@/components/ConnectWallet";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { CreateStreamModal } from "@/components/CreateStreamModal";
@@ -12,6 +12,63 @@ import { StreamFilter } from "@/types/stream";
 import { Plus, RefreshCw, Waves, Wallet } from "lucide-react";
 import { useStreamsFromChain } from "@/hooks/useStreamsFromChain";
 import { IS_TESTNET } from "@/lib/network";
+import {
+  computeState,
+  formatRatePerDay,
+  formatStxCompact,
+  getStatus,
+  ratePerDayMicro,
+} from "@/lib/stream";
+
+function OverviewStat({
+  label,
+  value,
+  unit,
+  sub,
+  accent,
+  className,
+}: {
+  label: string;
+  value: string;
+  unit: string;
+  sub?: string;
+  accent?: boolean;
+  className?: string;
+}) {
+  return (
+    <div className={`bg-card p-4 ${className ?? ""}`}>
+      <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+        {label}
+      </div>
+      <div className="mt-1 flex items-baseline gap-1">
+        <span
+          className={`tabular font-mono text-xl font-semibold tracking-tight ${
+            accent ? "text-primary" : "text-foreground"
+          }`}
+        >
+          {value}
+        </span>
+        <span className="text-xs text-muted-foreground">{unit}</span>
+      </div>
+      {sub && <div className="mt-0.5 text-[11px] text-muted-foreground">{sub}</div>}
+    </div>
+  );
+}
+
+function StreamRowSkeleton() {
+  return (
+    <div className="animate-pulse rounded-xl border border-border bg-card px-4 py-4 sm:px-5">
+      <div className="mb-3 flex items-center gap-2.5">
+        <div className="h-3 w-8 rounded bg-muted" />
+        <div className="h-3 w-40 rounded bg-muted" />
+        <div className="ml-auto h-4 w-16 rounded-full bg-muted" />
+      </div>
+      <div className="mb-3 h-7 w-44 rounded bg-muted" />
+      <div className="mb-3 h-3 w-56 rounded bg-muted" />
+      <div className="h-1.5 w-full rounded-full bg-muted" />
+    </div>
+  );
+}
 
 type View = "streams" | "wallet";
 
@@ -53,6 +110,51 @@ export default function Home() {
       );
     return true;
   });
+
+  const overview = useMemo(() => {
+    let inRate = 0;
+    let outRate = 0;
+    let claimable = 0;
+    let activeIn = 0;
+    let activeOut = 0;
+    const nowSec = Date.now() / 1000;
+    for (const s of streams) {
+      const st = computeState(s, nowSec);
+      const isSender = userAddress === s.sender;
+      const isRecipient = userAddress === s.recipient;
+      if (st.status === "active") {
+        if (isRecipient) {
+          inRate += ratePerDayMicro(s);
+          activeIn += 1;
+        }
+        if (isSender) {
+          outRate += ratePerDayMicro(s);
+          activeOut += 1;
+        }
+      }
+      if (isRecipient) claimable += st.availableMicro;
+    }
+    return { inRate, outRate, claimable, activeIn, activeOut };
+  }, [streams, userAddress]);
+
+  const counts = useMemo(() => {
+    const c: Record<StreamFilter, number> = {
+      all: streams.length,
+      active: 0,
+      paused: 0,
+      completed: 0,
+      cancelled: 0,
+    };
+    const nowSec = Date.now() / 1000;
+    for (const s of streams) {
+      const st = getStatus(s, nowSec);
+      if (st === "active") c.active += 1;
+      else if (st === "paused") c.paused += 1;
+      else if (st === "completed") c.completed += 1;
+      else if (st === "cancelled") c.cancelled += 1;
+    }
+    return c;
+  }, [streams]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -125,6 +227,30 @@ export default function Home() {
           <WalletView />
         ) : (
           <div className="space-y-4">
+            {streams.length > 0 && (
+              <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-3">
+                <OverviewStat
+                  label="Streaming in"
+                  value={formatRatePerDay(overview.inRate)}
+                  unit="STX/day"
+                  sub={`${overview.activeIn} active`}
+                />
+                <OverviewStat
+                  label="Streaming out"
+                  value={formatRatePerDay(overview.outRate)}
+                  unit="STX/day"
+                  sub={`${overview.activeOut} active`}
+                />
+                <OverviewStat
+                  className="col-span-2 sm:col-span-1"
+                  label="Claimable now"
+                  value={formatStxCompact(overview.claimable)}
+                  unit="STX"
+                  accent={overview.claimable > 0}
+                />
+              </div>
+            )}
+
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               {/* The single pill control in the app: stream filters. */}
               <div className="-mx-4 overflow-x-auto px-4 no-scrollbar sm:mx-0 sm:px-0">
@@ -133,13 +259,22 @@ export default function Home() {
                     <button
                       key={value}
                       onClick={() => setFilter(value)}
-                      className={`whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                      className={`inline-flex items-center whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
                         filter === value
                           ? "bg-foreground text-background"
                           : "text-muted-foreground hover:bg-accent hover:text-foreground"
                       }`}
                     >
                       {label}
+                      {counts[value] > 0 && (
+                        <span
+                          className={`tabular ml-1.5 text-[11px] ${
+                            filter === value ? "text-background/60" : "text-muted-foreground/60"
+                          }`}
+                        >
+                          {counts[value]}
+                        </span>
+                      )}
                     </button>
                   ))}
                 </div>
@@ -167,12 +302,11 @@ export default function Home() {
               </div>
             </div>
 
-            {loading ? (
-              <div className="flex flex-col items-center justify-center gap-3 py-20">
-                <div className="h-5 w-5 animate-spin rounded-full border-2 border-muted border-t-primary" />
-                <span className="text-sm text-muted-foreground">
-                  Loading streams…
-                </span>
+            {loading && streams.length === 0 ? (
+              <div className="space-y-2">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <StreamRowSkeleton key={i} />
+                ))}
               </div>
             ) : filteredStreams.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-center">
