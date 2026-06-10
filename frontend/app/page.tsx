@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { ConnectWallet } from "@/components/ConnectWallet";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { Landing } from "@/components/Landing";
 import { CreateStreamModal } from "@/components/CreateStreamModal";
 import { StreamCard } from "@/components/StreamCard";
 import { WalletView } from "@/components/WalletView";
@@ -210,19 +211,7 @@ export default function Home() {
 
       <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
         {!isSignedIn ? (
-          <div className="flex flex-col items-center justify-center py-20 sm:py-24">
-            <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary">
-              <Waves className="h-7 w-7 text-primary-foreground" />
-            </div>
-            <h2 className="mb-2 text-balance text-center text-2xl font-semibold text-foreground">
-              Token streaming on Stacks
-            </h2>
-            <p className="mb-8 max-w-sm text-balance text-center leading-relaxed text-muted-foreground">
-              Send STX continuously over time — for vesting, payroll,
-              subscriptions, and more.
-            </p>
-            <ConnectWallet />
-          </div>
+          <Landing />
         ) : view === "wallet" ? (
           <WalletView />
         ) : (

@@ -170,3 +170,12 @@ body {
     animation: none !important;
   }
 }
+
+/* Column-style faint dotted blueprint, fading out from the top. Decorative only. */
+.blueprint-grid {
+  background-image: radial-gradient(var(--border) 1px, transparent 1px);
+  background-size: 22px 22px;
+  background-position: -1px -1px;
+  -webkit-mask-image: radial-gradient(ellipse 75% 55% at 50% 0%, #000 35%, transparent 78%);
+  mask-image: radial-gradient(ellipse 75% 55% at 50% 0%, #000 35%, transparent 78%);
+}
