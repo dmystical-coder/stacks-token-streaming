@@ -1,26 +1,134 @@
 @import "tailwindcss";
 
+/* Dark mode is driven by a `.dark` class on <html> (set by ThemeProvider, no FOUC). */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+  StreamSTX design tokens — "precise fintech terminal".
+  Foundation: Brex (near-black on white, one accent, thin borders, ~no shadow).
+  Accent: electric blue, reserved for primary action / active / brand ONLY.
+  Numerics: mono + tabular-nums (see utilities below).
+  Values are stored as raw colors here and mapped into Tailwind's token
+  namespace via @theme inline, so shadcn primitives (bg-primary, border-input,
+  ring-ring, …) resolve correctly in both themes.
+*/
 :root {
+  color-scheme: light;
+
+  /* Surfaces */
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #0a0b0d; /* near-black, never pure #000 */
+  --card: #ffffff;
+  --card-foreground: #0a0b0d;
+  --popover: #ffffff;
+  --popover-foreground: #0a0b0d;
+
+  /* Neutrals / muted surfaces + secondary text */
+  --muted: #f4f5f7;
+  --muted-foreground: #5b616e; /* secondary text — passes AA on white */
+  --secondary: #f4f5f7;
+  --secondary-foreground: #0a0b0d;
+  --accent: #f4f5f7; /* hover/active surface */
+  --accent-foreground: #0a0b0d;
+
+  /* Lines */
+  --border: #e6e7eb;
+  --input: #e6e7eb;
+  --ring: #0a55ff;
+
+  /* Primary accent — electric blue, action only */
+  --primary: #0a55ff;
+  --primary-foreground: #ffffff;
+
+  /* Semantics — status only, never decoration */
+  --success: #0f9d58;
+  --success-foreground: #ffffff;
+  --warning: #b7791f;
+  --warning-foreground: #ffffff;
+  --destructive: #e5484d;
+  --destructive-foreground: #ffffff;
+
+  --radius: 0.5rem; /* 8px base: inputs/buttons. cards = +4px, badges = pill */
+}
+
+.dark {
+  color-scheme: dark;
+
+  /* Surfaces — separate scale, depth via tonal elevation not shadow */
+  --background: #0a0a0b;
+  --foreground: #f4f5f7; /* never pure #fff */
+  --card: #121316;
+  --card-foreground: #f4f5f7;
+  --popover: #121316;
+  --popover-foreground: #f4f5f7;
+
+  --muted: #1a1b1f;
+  --muted-foreground: #9b9fa7;
+  --secondary: #1a1b1f;
+  --secondary-foreground: #f4f5f7;
+  --accent: #1f2024;
+  --accent-foreground: #f4f5f7;
+
+  --border: rgba(255, 255, 255, 0.10);
+  --input: rgba(255, 255, 255, 0.14);
+  --ring: #4d8bff;
+
+  --primary: #2f6bff;
+  --primary-foreground: #ffffff;
+
+  --success: #2fb673;
+  --success-foreground: #04130b;
+  --warning: #d99a2b;
+  --warning-foreground: #1a1204;
+  --destructive: #ff5c63;
+  --destructive-foreground: #1a0405;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 4px);
+  --radius-xl: calc(var(--radius) + 8px);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Numerics read as precise financial figures: mono + equal-width digits. */
+.tabular {
+  font-feature-settings: "tnum";
+  font-variant-numeric: tabular-nums;
 }
