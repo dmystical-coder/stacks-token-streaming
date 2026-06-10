@@ -23,9 +23,13 @@ export const getContractConfig = () => {
     contractAddress: "ST3R3SX667CWE61113X23CAQ03SZXXZ3D8C2MR7YY",
     contractName: "stream-manager",
     networkUrl: "https://api.testnet.hiro.so",
-    explorerUrl: "https://explorer.hiro.so/?chain=testnet",
+    explorerUrl: "https://explorer.hiro.so",
   };
 };
+
+// Query string the Hiro explorer expects to scope a link to the active chain.
+// Mainnet needs no param; testnet must be appended to every explorer URL.
+const EXPLORER_CHAIN_PARAM = IS_MAINNET ? "" : "?chain=testnet";
 
 interface UserSession {
   loadUserData: () => UserData;
@@ -53,17 +57,17 @@ export const getNetworkAddress = (
 // Get explorer URL for transaction
 export const getTransactionUrl = (txId: string): string => {
   const config = getContractConfig();
-  return `${config.explorerUrl}/txid/${txId}`;
+  return `${config.explorerUrl}/txid/${txId}${EXPLORER_CHAIN_PARAM}`;
 };
 
 // Get explorer URL for address
 export const getAddressUrl = (address: string): string => {
   const config = getContractConfig();
-  return `${config.explorerUrl}/address/${address}`;
+  return `${config.explorerUrl}/address/${address}${EXPLORER_CHAIN_PARAM}`;
 };
 
 // Get explorer URL for contract
 export const getContractUrl = (): string => {
   const config = getContractConfig();
-  return `${config.explorerUrl}/txid/${config.contractAddress}.${config.contractName}`;
+  return `${config.explorerUrl}/txid/${config.contractAddress}.${config.contractName}${EXPLORER_CHAIN_PARAM}`;
 };

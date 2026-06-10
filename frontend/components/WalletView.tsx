@@ -2,10 +2,17 @@
 
 import { useWalletData } from '@/hooks/useWalletData';
 import { useAuth } from '@/contexts/AuthContext';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, RefreshCw, ArrowUpRight, ArrowDownLeft, ExternalLink, Copy, Check } from 'lucide-react';
+import {
+  RefreshCw,
+  ArrowUpRight,
+  ArrowDownLeft,
+  ExternalLink,
+  Copy,
+  Check,
+} from 'lucide-react';
 import { microStxToStx, CONTRACT_ADDRESS, CONTRACT_NAME } from '@/lib/stacks';
+import { getTransactionUrl, getAddressUrl } from '@/lib/network';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -22,191 +29,216 @@ interface Transaction {
   };
 }
 
+function humanize(fn: string) {
+  return fn.replace(/-/g, ' ').replace(/^\w/, (c) => c.toUpperCase());
+}
+
 export function WalletView() {
   const { userAddress } = useAuth();
   const { balance, transactions, loading, refresh } = useWalletData(userAddress);
   const [copied, setCopied] = useState(false);
 
   const copyAddress = () => {
-    if (userAddress) {
-      navigator.clipboard.writeText(userAddress);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
-  };
-
-  const truncateAddress = (addr: string) => {
-    return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+    if (!userAddress) return;
+    navigator.clipboard.writeText(userAddress);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   const getTxLabel = (tx: Transaction) => {
     if (tx.tx_type === 'contract_call' && tx.contract_call) {
-      return tx.contract_call.function_name;
+      return humanize(tx.contract_call.function_name);
     }
     if (tx.tx_type === 'token_transfer') {
       return tx.sender_address === userAddress ? 'Sent STX' : 'Received STX';
     }
-    return tx.tx_type;
+    return humanize(tx.tx_type);
   };
 
-  const isContractInteraction = (tx: Transaction) => {
-    return tx.contract_call?.contract_id === `${CONTRACT_ADDRESS}.${CONTRACT_NAME}`;
-  };
+  const isContractInteraction = (tx: Transaction) =>
+    tx.contract_call?.contract_id === `${CONTRACT_ADDRESS}.${CONTRACT_NAME}`;
 
   if (!userAddress) return null;
 
+  const locked = balance ? Number(balance.locked) : 0;
+
   return (
-    <div className="space-y-6 w-full max-w-full">
-      <div className="flex justify-between items-center w-full">
-        <h2 className="text-2xl font-bold">Wallet Overview</h2>
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={refresh} 
+    <div className="space-y-6">
+      {/* Balance hero — no card, just a section */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <div className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
+            Total balance
+          </div>
+          <div className="mt-1 flex items-baseline gap-1.5">
+            <span className="tabular font-mono text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+              {balance ? microStxToStx(Number(balance.balance)) : '0.000000'}
+            </span>
+            <span className="text-base text-muted-foreground">STX</span>
+          </div>
+          <div className="mt-2 flex items-center gap-1.5">
+            <span className="tabular truncate font-mono text-xs text-muted-foreground">
+              {userAddress}
+            </span>
+            <button
+              onClick={copyAddress}
+              aria-label="Copy address"
+              className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            >
+              {copied ? (
+                <Check className="h-3.5 w-3.5 text-success" />
+              ) : (
+                <Copy className="h-3.5 w-3.5" />
+              )}
+            </button>
+            <a
+              href={getAddressUrl(userAddress)}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="View address on explorer"
+              className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+          </div>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={refresh}
           disabled={loading}
-          className="gap-2"
+          className="h-8 gap-1.5 self-start text-xs sm:self-auto"
         >
-          <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} />
+          <RefreshCw className={cn('h-3 w-3', loading && 'animate-spin')} />
           Refresh
         </Button>
       </div>
 
-      <div className="grid gap-6 grid-cols-1 md:grid-cols-2 w-full">
-        {/* Balance Card */}
-        <Card className="h-full w-full overflow-hidden">
-          <CardHeader className="p-4 sm:p-6">
-            <CardTitle>Total Balance</CardTitle>
-            <CardDescription>Available STX in your wallet</CardDescription>
-          </CardHeader>
-          <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0">
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-wrap items-baseline gap-2">
-                <span className="text-3xl sm:text-4xl font-bold break-all">
-                  {balance ? microStxToStx(Number(balance.balance)) : '0.00'}
-                </span>
-                <span className="text-zinc-500 text-lg">STX</span>
-              </div>
-              
-              {/* Address Container */}
-              <div className="flex items-center gap-2 p-2 bg-zinc-100 dark:bg-zinc-900 rounded-lg w-full max-w-full overflow-hidden">
-                <span className="text-sm font-mono text-zinc-600 dark:text-zinc-400 truncate flex-1 min-w-0">
-                  {userAddress}
-                </span>
-                <button 
-                  onClick={copyAddress}
-                  className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded transition-colors shrink-0"
-                >
-                  {copied ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3 text-zinc-500" />}
-                </button>
-              </div>
+      {/* Lifetime stats — hairline grid, consistent with the streams overview */}
+      <div
+        className={cn(
+          'grid gap-px overflow-hidden rounded-xl border border-border bg-border',
+          locked > 0 ? 'grid-cols-3' : 'grid-cols-2'
+        )}
+      >
+        <div className="bg-card p-4">
+          <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
+            <ArrowDownLeft className="h-3.5 w-3.5 text-success" />
+            Received
+          </div>
+          <div className="tabular mt-1 font-mono text-lg font-medium text-foreground">
+            {balance ? microStxToStx(Number(balance.total_received)) : '0'}
+          </div>
+        </div>
+        <div className="bg-card p-4">
+          <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
+            <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground" />
+            Sent
+          </div>
+          <div className="tabular mt-1 font-mono text-lg font-medium text-foreground">
+            {balance ? microStxToStx(Number(balance.total_sent)) : '0'}
+          </div>
+        </div>
+        {locked > 0 && (
+          <div className="bg-card p-4">
+            <div className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
+              Locked
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Stats Card */}
-        <Card className="h-full w-full overflow-hidden">
-          <CardHeader className="p-4 sm:p-6">
-            <CardTitle>Activity Stats</CardTitle>
-            <CardDescription>Lifetime wallet activity</CardDescription>
-          </CardHeader>
-          <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="p-4 rounded-lg bg-green-50 dark:bg-green-900/10 border border-green-100 dark:border-green-900/30">
-                <div className="flex items-center gap-2 mb-2 text-green-700 dark:text-green-400">
-                  <ArrowDownLeft className="w-4 h-4" />
-                  <span className="text-sm font-medium">Received</span>
-                </div>
-                <div className="font-bold text-lg break-all">
-                   {balance ? microStxToStx(Number(balance.total_received)) : '0'} STX
-                </div>
-              </div>
-              
-              <div className="p-4 rounded-lg bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30">
-                <div className="flex items-center gap-2 mb-2 text-red-700 dark:text-red-400">
-                  <ArrowUpRight className="w-4 h-4" />
-                  <span className="text-sm font-medium">Sent</span>
-                </div>
-                <div className="font-bold text-lg break-all">
-                  {balance ? microStxToStx(Number(balance.total_sent)) : '0'} STX
-                </div>
-              </div>
+            <div className="tabular mt-1 font-mono text-lg font-medium text-foreground">
+              {microStxToStx(locked)}
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        )}
       </div>
 
-      {/* Transaction History */}
-      <Card className="w-full overflow-hidden">
-        <CardHeader className="p-4 sm:p-6">
-          <CardTitle>Recent Activity</CardTitle>
-          <CardDescription>Your recent transactions</CardDescription>
-        </CardHeader>
-        <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0">
-          {loading && !transactions.length ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="w-8 h-8 animate-spin text-zinc-400" />
-            </div>
-          ) : transactions.length > 0 ? (
-            <div className="space-y-4">
-              {transactions.map((tx) => {
-                const isContract = isContractInteraction(tx);
-                return (
-                  <div 
-                    key={tx.tx_id}
+      {/* Activity */}
+      <div>
+        <h3 className="mb-3 text-sm font-medium text-foreground">Recent activity</h3>
+        {loading && transactions.length === 0 ? (
+          <div className="space-y-2">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div
+                key={i}
+                className="flex animate-pulse items-center gap-3 rounded-xl border border-border bg-card px-4 py-3"
+              >
+                <div className="h-8 w-8 shrink-0 rounded-full bg-muted" />
+                <div className="flex-1 space-y-1.5">
+                  <div className="h-3 w-32 rounded bg-muted" />
+                  <div className="h-2.5 w-20 rounded bg-muted" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : transactions.length > 0 ? (
+          <div className="space-y-2">
+            {transactions.map((tx) => {
+              const outgoing = tx.sender_address === userAddress;
+              const isContract = isContractInteraction(tx);
+              const success = tx.tx_status === 'success';
+              const pending = tx.tx_status === 'pending';
+              return (
+                <div
+                  key={tx.tx_id}
+                  className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 transition-colors hover:border-foreground/20"
+                >
+                  <div
                     className={cn(
-                      "flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-lg border transition-all gap-3 sm:gap-0",
-                      isContract 
-                        ? "bg-blue-50/50 border-blue-100 dark:bg-blue-900/10 dark:border-blue-900/30" 
-                        : "bg-white border-zinc-100 dark:bg-zinc-900/50 dark:border-zinc-800"
+                      'flex h-8 w-8 shrink-0 items-center justify-center rounded-full',
+                      outgoing
+                        ? 'bg-muted text-muted-foreground'
+                        : 'bg-success/10 text-success'
                     )}
                   >
-                    <div className="flex items-start sm:items-center gap-4 min-w-0">
-                      <div className={cn(
-                        "p-2 rounded-full shrink-0",
-                        tx.tx_status === 'success' ? "bg-green-100 text-green-600 dark:bg-green-900/30" : "bg-red-100 text-red-600 dark:bg-red-900/30"
-                      )}>
-                        {tx.tx_type === 'token_transfer' && tx.sender_address === userAddress ? (
-                          <ArrowUpRight className="w-4 h-4" />
-                        ) : (
-                          <RefreshCw className="w-4 h-4" />
-                        )}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="font-medium flex items-center gap-2 flex-wrap">
-                          <span className="truncate max-w-[150px] sm:max-w-[300px] block">{getTxLabel(tx)}</span>
-                          {isContract && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 shrink-0">
-                              Contract
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-xs text-zinc-500">
-                           {tx.burn_block_time_iso ? format(new Date(tx.burn_block_time_iso), 'PPp') : 'Pending'}
-                        </div>
-                      </div>
+                    {outgoing ? (
+                      <ArrowUpRight className="h-4 w-4" />
+                    ) : (
+                      <ArrowDownLeft className="h-4 w-4" />
+                    )}
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="truncate text-sm font-medium text-foreground">
+                        {getTxLabel(tx)}
+                      </span>
+                      {isContract && (
+                        <span className="shrink-0 rounded-full border border-primary/25 bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                          Contract
+                        </span>
+                      )}
                     </div>
-                    
-                    <div className="flex justify-end w-full sm:w-auto mt-2 sm:mt-0">
-                      <a 
-                        href={`https://explorer.hiro.so/txid/${tx.tx_id}?chain=mainnet`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-colors"
-                      >
-                        <ExternalLink className="w-4 h-4" />
-                      </a>
+                    <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <span
+                        className={cn(
+                          'inline-block h-1.5 w-1.5 rounded-full',
+                          success ? 'bg-success' : pending ? 'bg-warning' : 'bg-destructive'
+                        )}
+                      />
+                      {tx.burn_block_time_iso
+                        ? format(new Date(tx.burn_block_time_iso), 'PP p')
+                        : 'Pending'}
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="text-center py-8 text-zinc-500">
-              No recent transactions found
-            </div>
-          )}
-        </CardContent>
-      </Card>
+
+                  <a
+                    href={getTransactionUrl(tx.tx_id)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="View transaction on explorer"
+                    className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-12 text-center">
+            <p className="text-sm text-muted-foreground">No transactions yet</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
