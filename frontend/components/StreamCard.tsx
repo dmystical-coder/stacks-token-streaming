@@ -11,6 +11,7 @@ import {
   Pause,
   XCircle,
   Download,
+  Loader2,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
@@ -47,13 +48,20 @@ const PROGRESS_FILL: Record<StreamStatusKey, string> = {
   scheduled: 'bg-muted-foreground/40',
 };
 
+type ActionKey = 'withdraw' | 'pause' | 'resume' | 'cancel';
+
 export function StreamCard({ streamId, stream, onUpdate }: StreamCardProps) {
   const { userAddress } = useAuth();
   const { withdrawFromStream, cancelStream, pauseStream, resumeStream } =
     useStreamContract();
-  const [loading, setLoading] = useState(false);
+  const [pending, setPending] = useState<ActionKey | null>(null);
+  const [confirming, setConfirming] = useState<'withdraw' | 'cancel' | null>(null);
+  // Snapshot of the (live-ticking) claimable balance, frozen when the user
+  // opens the withdraw preview so the figures don't move while they decide.
+  const [claimSnapshotMicro, setClaimSnapshotMicro] = useState(0);
   const [now, setNow] = useState(() => Date.now());
   const reducedMotion = usePrefersReducedMotion();
+  const busy = pending !== null;
 
   // Live tick. While the stream is actively flowing we update ~12×/sec so the
   // available figure visibly counts up (rAF pauses when the tab is hidden);
@@ -99,17 +107,28 @@ export function StreamCard({ streamId, stream, onUpdate }: StreamCardProps) {
     isRecipient && !stream.isCancelled && !stream.isPaused && availableMicro > 0;
   const canControl = isSender && !stream.isCancelled && status !== 'completed';
 
-  const handleAction = async (action: () => Promise<void>) => {
-    setLoading(true);
+  const handleAction = async (key: ActionKey, action: () => Promise<void>) => {
+    setPending(key);
     try {
       await action();
       setTimeout(onUpdate, 2000);
     } catch {
       // Feedback is surfaced via the toast in useStreamContract.
     } finally {
-      setLoading(false);
+      setPending(null);
+      setConfirming(null);
     }
   };
+
+  const startWithdraw = () => {
+    setClaimSnapshotMicro(availableMicro); // capture the live balance now
+    setConfirming('withdraw');
+  };
+
+  const claimRemainingMicro = Math.max(
+    0,
+    stream.tokenAmount - stream.withdrawnAmount - claimSnapshotMicro
+  );
 
   return (
     <div className="rounded-xl border border-border bg-card px-4 py-4 transition-colors hover:border-foreground/20 sm:px-5">
@@ -198,13 +217,80 @@ export function StreamCard({ streamId, stream, onUpdate }: StreamCardProps) {
         </div>
       </div>
 
-      {/* Row 5: actions */}
-      {(canWithdraw || canControl) && (
+      {/* Row 5: actions — with confirm/preview steps for withdraw and cancel */}
+      {confirming === 'withdraw' ? (
+        <div className="rounded-lg border border-border bg-muted/40 p-3">
+          <div className="flex items-baseline justify-between text-sm">
+            <span className="text-muted-foreground">Claiming now</span>
+            <span className="tabular font-mono font-medium text-foreground">
+              {formatStxCompact(claimSnapshotMicro)} STX
+            </span>
+          </div>
+          <div className="mt-1 flex items-baseline justify-between text-sm">
+            <span className="text-muted-foreground">Left to claim</span>
+            <span className="tabular font-mono text-muted-foreground">
+              {formatStxCompact(claimRemainingMicro)} STX
+            </span>
+          </div>
+          <div className="mt-3 flex gap-1.5">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setConfirming(null)}
+              disabled={busy}
+              className="h-7 px-3 text-xs"
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => handleAction('withdraw', () => withdrawFromStream(streamId))}
+              disabled={busy}
+              className="h-7 flex-1 gap-1.5 px-3 text-xs"
+            >
+              {pending === 'withdraw' ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Download className="h-3 w-3" />
+              )}
+              {pending === 'withdraw' ? 'Withdrawing…' : 'Confirm withdraw'}
+            </Button>
+          </div>
+        </div>
+      ) : confirming === 'cancel' ? (
+        <div className="flex flex-col gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 sm:flex-row sm:items-center">
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            Cancel this stream? Vested STX goes to the recipient and the rest is
+            refunded to you. This can&apos;t be undone.
+          </p>
+          <div className="flex gap-1.5 sm:ml-auto sm:shrink-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setConfirming(null)}
+              disabled={busy}
+              className="h-7 px-3 text-xs"
+            >
+              Keep
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => handleAction('cancel', () => cancelStream(streamId))}
+              disabled={busy}
+              className="h-7 gap-1.5 px-3 text-xs"
+            >
+              {pending === 'cancel' && <Loader2 className="h-3 w-3 animate-spin" />}
+              {pending === 'cancel' ? 'Cancelling…' : 'Cancel stream'}
+            </Button>
+          </div>
+        </div>
+      ) : canWithdraw || canControl ? (
         <div className="flex items-center gap-1.5">
           {canWithdraw && (
             <Button
-              onClick={() => handleAction(() => withdrawFromStream(streamId))}
-              disabled={loading}
+              onClick={startWithdraw}
+              disabled={busy}
               size="sm"
               className="h-7 gap-1.5 px-3 text-xs"
             >
@@ -217,30 +303,38 @@ export function StreamCard({ streamId, stream, onUpdate }: StreamCardProps) {
             <div className="ml-auto flex gap-1.5">
               {stream.isPaused ? (
                 <Button
-                  onClick={() => handleAction(() => resumeStream(streamId))}
-                  disabled={loading}
+                  onClick={() => handleAction('resume', () => resumeStream(streamId))}
+                  disabled={busy}
                   size="sm"
                   variant="outline"
                   className="h-7 gap-1.5 px-3 text-xs"
                 >
-                  <Play className="h-3 w-3" />
+                  {pending === 'resume' ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Play className="h-3 w-3" />
+                  )}
                   Resume
                 </Button>
               ) : (
                 <Button
-                  onClick={() => handleAction(() => pauseStream(streamId))}
-                  disabled={loading}
+                  onClick={() => handleAction('pause', () => pauseStream(streamId))}
+                  disabled={busy}
                   size="sm"
                   variant="outline"
                   className="h-7 gap-1.5 px-3 text-xs"
                 >
-                  <Pause className="h-3 w-3" />
+                  {pending === 'pause' ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Pause className="h-3 w-3" />
+                  )}
                   Pause
                 </Button>
               )}
               <button
-                onClick={() => handleAction(() => cancelStream(streamId))}
-                disabled={loading}
+                onClick={() => setConfirming('cancel')}
+                disabled={busy}
                 title="Cancel stream"
                 aria-label="Cancel stream"
                 className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-40"
@@ -250,7 +344,7 @@ export function StreamCard({ streamId, stream, onUpdate }: StreamCardProps) {
             </div>
           )}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
