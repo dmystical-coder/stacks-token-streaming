@@ -141,3 +141,32 @@ body {
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+/* Signature "money is flowing" motion: a sheen sweeping the active progress
+   fill, and a pulsing live dot. Used only on active streams. */
+@keyframes flow-sheen {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(400%);
+  }
+}
+@keyframes live-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+.animate-live-pulse {
+  animation: live-pulse 1.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-live-pulse,
+  [class*="flow-sheen"] {
+    animation: none !important;
+  }
+}

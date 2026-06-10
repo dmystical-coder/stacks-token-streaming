@@ -12,7 +12,7 @@ import {
   XCircle,
   Download,
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 interface StreamCardProps {
   streamId: number;
@@ -23,22 +23,84 @@ interface StreamCardProps {
 type StreamStatusKey = 'scheduled' | 'active' | 'paused' | 'completed' | 'cancelled';
 
 const STATUS_BADGE: Record<StreamStatusKey, string> = {
-  active: 'bg-blue-50 text-blue-700 border-blue-200',
-  paused: 'bg-amber-50 text-amber-700 border-amber-200',
-  completed: 'bg-green-50 text-green-700 border-green-200',
-  cancelled: 'bg-red-50 text-red-500 border-red-200',
-  scheduled: 'bg-slate-100 text-slate-500 border-slate-200',
+  active: 'bg-primary/10 text-primary border-primary/25',
+  paused: 'bg-warning/10 text-warning border-warning/30',
+  completed: 'bg-success/10 text-success border-success/30',
+  cancelled: 'bg-destructive/10 text-destructive border-destructive/30',
+  scheduled: 'bg-muted text-muted-foreground border-border',
 };
 
-const PROGRESS_COLOR: Record<StreamStatusKey, string> = {
-  active: 'bg-blue-500',
-  paused: 'bg-amber-400',
-  completed: 'bg-green-500',
-  cancelled: 'bg-red-400',
-  scheduled: 'bg-slate-300',
+const PROGRESS_FILL: Record<StreamStatusKey, string> = {
+  active: 'bg-primary',
+  paused: 'bg-warning',
+  completed: 'bg-success',
+  cancelled: 'bg-destructive',
+  scheduled: 'bg-muted-foreground/40',
 };
 
-function formatStx(microStx: number): string {
+interface StreamState {
+  status: StreamStatusKey;
+  fraction: number; // 0..1 vested
+  vestedMicro: number;
+  availableMicro: number;
+  timeRemaining: number; // seconds
+}
+
+function getStatus(stream: Stream, nowSec: number): StreamStatusKey {
+  if (stream.isCancelled) return 'cancelled';
+  if (stream.isPaused) return 'paused';
+  const adjustedEnd = stream.endTime + stream.totalPausedDuration;
+  if (nowSec >= adjustedEnd) return 'completed';
+  if (nowSec >= stream.startTime) return 'active';
+  return 'scheduled';
+}
+
+function computeState(stream: Stream, nowSec: number): StreamState {
+  const status = getStatus(stream, nowSec);
+  const adjustedEnd = stream.endTime + stream.totalPausedDuration;
+  const totalDuration = stream.endTime - stream.startTime;
+  const timeRemaining = Math.max(0, adjustedEnd - nowSec);
+
+  // Freeze the clock at the pause moment so a paused stream reads its true
+  // vested-so-far rather than continuing to advance.
+  const ref = status === 'paused' && stream.pausedAt > 0 ? stream.pausedAt : nowSec;
+
+  let fraction: number;
+  if (totalDuration <= 0) {
+    fraction = status === 'completed' ? 1 : 0;
+  } else if (status === 'scheduled') {
+    fraction = 0;
+  } else if (status === 'completed') {
+    fraction = 1;
+  } else {
+    const elapsed = Math.min(
+      totalDuration,
+      Math.max(0, ref - stream.startTime - stream.totalPausedDuration)
+    );
+    fraction = elapsed / totalDuration;
+  }
+
+  const vestedMicro = fraction * stream.tokenAmount;
+
+  let availableMicro: number;
+  if (status === 'completed') {
+    availableMicro = stream.tokenAmount - stream.withdrawnAmount;
+  } else if (status === 'active' || status === 'paused') {
+    availableMicro = Math.max(0, vestedMicro - stream.withdrawnAmount);
+  } else {
+    availableMicro = 0;
+  }
+
+  return { status, fraction, vestedMicro, availableMicro, timeRemaining };
+}
+
+/** Splits a microSTX amount into grouped integer + 6-digit fraction parts. */
+function splitStx(microStx: number): { int: string; frac: string } {
+  const [i, f] = (microStx / 1_000_000).toFixed(6).split('.');
+  return { int: Number(i).toLocaleString('en'), frac: f };
+}
+
+function formatStxCompact(microStx: number): string {
   const stx = microStx / 1_000_000;
   if (stx >= 10_000) return stx.toLocaleString('en', { maximumFractionDigits: 0 });
   if (stx >= 100) return stx.toFixed(2);
@@ -71,192 +133,176 @@ export function StreamCard({ streamId, stream, onUpdate }: StreamCardProps) {
   const { withdrawFromStream, cancelStream, pauseStream, resumeStream } =
     useStreamContract();
   const [loading, setLoading] = useState(false);
-  const [availableBalance, setAvailableBalance] = useState(0);
-  const [progress, setProgress] = useState(0);
-  const [timeRemaining, setTimeRemaining] = useState(0);
+  const [now, setNow] = useState(() => Date.now());
+
+  // Live tick. While the stream is actively flowing we update ~12×/sec so the
+  // available figure visibly counts up (rAF pauses when the tab is hidden);
+  // otherwise a 1s cadence is enough to catch state transitions and "time left".
+  useEffect(() => {
+    let raf = 0;
+    let last = 0;
+    const tick = (t: number) => {
+      const isLive = getStatus(stream, Date.now() / 1000) === 'active';
+      const interval = isLive ? 80 : 1000;
+      if (t - last >= interval) {
+        setNow(Date.now());
+        last = t;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [stream]);
 
   const isSender = userAddress === stream.sender;
   const isRecipient = userAddress === stream.recipient;
   const counterparty = isSender ? stream.recipient : stream.sender;
-  const duration = stream.endTime - stream.startTime;
-  const ratePerDay = formatRatePerDay(stream.tokenAmount, duration);
-  const totalStx = formatStx(stream.tokenAmount);
 
-  useEffect(() => {
-    computeState();
-    const interval = setInterval(computeState, 10_000);
-    return () => clearInterval(interval);
-  }, [stream]);
+  const { status, fraction, vestedMicro, availableMicro, timeRemaining } =
+    computeState(stream, now / 1000);
 
-  const computeState = () => {
-    const now = Date.now() / 1000;
-    const adjustedEndTime = stream.endTime + stream.totalPausedDuration;
-    setTimeRemaining(Math.max(0, adjustedEndTime - now));
+  const progress = fraction * 100;
+  const ratePerDay = formatRatePerDay(stream.tokenAmount, stream.endTime - stream.startTime);
+  const totalStx = formatStxCompact(stream.tokenAmount);
 
-    if (stream.isCancelled || stream.isPaused) {
-      setAvailableBalance(0);
-      return;
-    }
+  // Hero figure: what the recipient can claim vs. what the sender has streamed.
+  const heroMicro = isRecipient ? availableMicro : vestedMicro;
+  const heroLabel = isRecipient
+    ? status === 'completed'
+      ? 'Claimable'
+      : 'Available'
+    : 'Streamed';
+  const hero = splitStx(heroMicro);
 
-    if (now < stream.startTime) {
-      setAvailableBalance(0);
-      setProgress(0);
-      return;
-    }
-
-    const adjustedElapsed = Math.max(
-      0,
-      now - stream.startTime - stream.totalPausedDuration
-    );
-    const totalDuration = stream.endTime - stream.startTime;
-
-    if (now >= adjustedEndTime) {
-      setAvailableBalance(stream.tokenAmount - stream.withdrawnAmount);
-      setProgress(100);
-    } else {
-      const vested = (stream.tokenAmount * adjustedElapsed) / totalDuration;
-      setAvailableBalance(Math.floor(Math.max(0, vested - stream.withdrawnAmount)));
-      setProgress((adjustedElapsed / totalDuration) * 100);
-    }
-  };
-
-  const getStatus = (): StreamStatusKey => {
-    if (stream.isCancelled) return 'cancelled';
-    if (stream.isPaused) return 'paused';
-    const now = Date.now() / 1000;
-    const adjustedEndTime = stream.endTime + stream.totalPausedDuration;
-    if (now >= adjustedEndTime) return 'completed';
-    if (now >= stream.startTime) return 'active';
-    return 'scheduled';
-  };
+  const canWithdraw =
+    isRecipient && !stream.isCancelled && !stream.isPaused && availableMicro > 0;
+  const canControl = isSender && !stream.isCancelled && status !== 'completed';
 
   const handleAction = async (action: () => Promise<void>) => {
     setLoading(true);
     try {
       await action();
       setTimeout(onUpdate, 2000);
-    } catch (err) {
-      console.error('Action failed:', err);
+    } catch {
+      // Feedback is surfaced via the toast in useStreamContract.
     } finally {
       setLoading(false);
     }
   };
 
-  const status = getStatus();
-
   return (
-    <div className="bg-white border border-slate-200 rounded-xl px-5 py-4 hover:border-slate-300 hover:shadow-sm transition-all">
-      {/* Row 1: stream ID + direction/address + status badge */}
-      <div className="flex items-center gap-3 mb-3">
-        <span
-          className="font-mono text-xs text-slate-400 shrink-0"
-          style={{ fontVariantNumeric: 'tabular-nums' }}
-        >
+    <div className="rounded-xl border border-border bg-card px-4 py-4 transition-colors hover:border-foreground/20 sm:px-5">
+      {/* Row 1: id · direction + counterparty · status */}
+      <div className="mb-3 flex items-center gap-2.5">
+        <span className="tabular shrink-0 font-mono text-xs text-muted-foreground">
           #{streamId}
         </span>
-
-        <div className="flex items-center gap-1.5 flex-1 min-w-0">
+        <div className="flex min-w-0 flex-1 items-center gap-1.5">
           {isSender ? (
-            <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+            <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           ) : (
-            <ArrowDownLeft className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+            <ArrowDownLeft className="h-3.5 w-3.5 shrink-0 text-primary" />
           )}
-          <span className="font-mono text-xs text-slate-500 truncate">
-            {counterparty.slice(0, 10)}…{counterparty.slice(-6)}
+          <span className="truncate font-mono text-xs text-muted-foreground">
+            {isSender ? 'to ' : 'from '}
+            {counterparty.slice(0, 8)}…{counterparty.slice(-5)}
           </span>
         </div>
-
         <span
-          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border capitalize shrink-0 ${STATUS_BADGE[status]}`}
+          className={`inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${STATUS_BADGE[status]}`}
           style={{ letterSpacing: '0.06em', textTransform: 'uppercase' }}
         >
           {status}
         </span>
       </div>
 
-      {/* Row 2: rate (primary metric) + total */}
-      <div className="flex items-baseline gap-2 mb-3">
-        <span
-          className="font-mono text-2xl font-semibold text-slate-900 leading-none"
-          style={{ fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.01em' }}
-        >
-          {ratePerDay}
+      {/* Row 2: live hero figure */}
+      <div className="mb-1 flex items-baseline gap-2">
+        <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
+          {heroLabel}
         </span>
-        <span className="text-sm text-slate-400 leading-none">STX/day</span>
-        <span className="text-slate-200 mx-0.5">·</span>
-        <span
-          className="font-mono text-sm text-slate-500"
-          style={{ fontVariantNumeric: 'tabular-nums' }}
-        >
-          {totalStx} STX total
+        {status === 'active' && (
+          <span className="inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-primary">
+            <span className="h-1.5 w-1.5 rounded-full bg-primary animate-live-pulse" />
+            streaming
+          </span>
+        )}
+      </div>
+      <div className="mb-3 flex items-baseline gap-1.5">
+        <span className="tabular font-mono text-2xl font-semibold leading-none tracking-tight text-foreground sm:text-3xl">
+          {hero.int}
+          <span className="text-muted-foreground">.{hero.frac}</span>
         </span>
+        <span className="text-sm text-muted-foreground">STX</span>
       </div>
 
-      {/* Row 3: progress bar + time/pct */}
+      {/* Row 3: secondary metrics */}
+      <div className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-xs text-muted-foreground">
+        <span className="tabular">{ratePerDay} STX/day</span>
+        <span className="text-border">·</span>
+        <span className="tabular">{totalStx} STX total</span>
+        {stream.withdrawnAmount > 0 && (
+          <>
+            <span className="text-border">·</span>
+            <span className="tabular">{formatStxCompact(stream.withdrawnAmount)} withdrawn</span>
+          </>
+        )}
+      </div>
+
+      {/* Row 4: progress + time */}
       <div className="mb-3.5">
-        <div className="flex justify-between items-center mb-1.5">
-          <span
-            className="font-mono text-xs text-slate-400"
-            style={{ fontVariantNumeric: 'tabular-nums' }}
-          >
+        <div className="mb-1.5 flex items-center justify-between">
+          <span className="tabular font-mono text-xs text-muted-foreground">
             {progress.toFixed(1)}%
           </span>
-          <span className="text-xs text-slate-400">
+          <span className="text-xs text-muted-foreground">
             {status === 'active' || status === 'scheduled'
               ? formatTimeRemaining(timeRemaining)
               : status === 'completed'
-              ? 'Completed'
-              : status === 'paused'
-              ? 'Paused'
-              : 'Cancelled'}
+                ? 'Completed'
+                : status === 'paused'
+                  ? 'Paused'
+                  : 'Cancelled'}
           </span>
         </div>
-        <div className="w-full bg-slate-100 rounded-full h-1.5">
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
           <div
-            className={`h-1.5 rounded-full transition-all duration-700 ${PROGRESS_COLOR[status]}`}
+            className={`relative h-full overflow-hidden rounded-full transition-[width] duration-700 ${PROGRESS_FILL[status]}`}
             style={{ width: `${Math.min(progress, 100)}%` }}
-          />
+          >
+            {status === 'active' && (
+              <span className="absolute inset-y-0 left-0 w-1/4 -translate-x-full animate-[flow-sheen_1.6s_linear_infinite] bg-gradient-to-r from-transparent via-white/55 to-transparent" />
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Row 4: available badge + actions */}
-      <div className="flex items-center gap-2 flex-wrap">
-        {availableBalance > 0 && isRecipient && (
-          <span
-            className="text-xs text-green-700 font-mono font-medium bg-green-50 px-2 py-1 rounded-md border border-green-200"
-            style={{ fontVariantNumeric: 'tabular-nums' }}
-          >
-            {formatStx(availableBalance)} STX available
-          </span>
-        )}
+      {/* Row 5: actions */}
+      {(canWithdraw || canControl) && (
+        <div className="flex items-center gap-1.5">
+          {canWithdraw && (
+            <Button
+              onClick={() => handleAction(() => withdrawFromStream(streamId))}
+              disabled={loading}
+              size="sm"
+              className="h-7 gap-1.5 px-3 text-xs"
+            >
+              <Download className="h-3 w-3" />
+              Withdraw
+            </Button>
+          )}
 
-        <div className="flex gap-1.5 ml-auto">
-          {isRecipient &&
-            !stream.isCancelled &&
-            !stream.isPaused &&
-            availableBalance > 0 && (
-              <Button
-                onClick={() => handleAction(() => withdrawFromStream(streamId))}
-                disabled={loading}
-                size="sm"
-                className="h-7 px-3 text-xs bg-blue-700 hover:bg-blue-800 text-white gap-1.5"
-              >
-                <Download className="w-3 h-3" />
-                Withdraw
-              </Button>
-            )}
-
-          {isSender && !stream.isCancelled && status !== 'completed' && (
-            <>
+          {canControl && (
+            <div className="ml-auto flex gap-1.5">
               {stream.isPaused ? (
                 <Button
                   onClick={() => handleAction(() => resumeStream(streamId))}
                   disabled={loading}
                   size="sm"
                   variant="outline"
-                  className="h-7 px-3 text-xs gap-1.5 border-slate-200 text-slate-600"
+                  className="h-7 gap-1.5 px-3 text-xs"
                 >
-                  <Play className="w-3 h-3" />
+                  <Play className="h-3 w-3" />
                   Resume
                 </Button>
               ) : (
@@ -265,9 +311,9 @@ export function StreamCard({ streamId, stream, onUpdate }: StreamCardProps) {
                   disabled={loading}
                   size="sm"
                   variant="outline"
-                  className="h-7 px-3 text-xs gap-1.5 border-slate-200 text-slate-600"
+                  className="h-7 gap-1.5 px-3 text-xs"
                 >
-                  <Pause className="w-3 h-3" />
+                  <Pause className="h-3 w-3" />
                   Pause
                 </Button>
               )}
@@ -275,14 +321,15 @@ export function StreamCard({ streamId, stream, onUpdate }: StreamCardProps) {
                 onClick={() => handleAction(() => cancelStream(streamId))}
                 disabled={loading}
                 title="Cancel stream"
-                className="h-7 w-7 flex items-center justify-center rounded-md text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40"
+                aria-label="Cancel stream"
+                className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-40"
               >
-                <XCircle className="w-4 h-4" />
+                <XCircle className="h-4 w-4" />
               </button>
-            </>
+            </div>
           )}
         </div>
-      </div>
+      )}
     </div>
   );
 }
