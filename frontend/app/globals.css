@@ -132,3 +132,12 @@ body {
   font-feature-settings: "tnum";
   font-variant-numeric: tabular-nums;
 }
+
+/* Edge-to-edge horizontal scrollers (e.g. filter pills on mobile) without a bar. */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}

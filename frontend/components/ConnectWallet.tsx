@@ -1,7 +1,7 @@
 'use client';
 
 import { useAuth } from '@/contexts/AuthContext';
-import { LogOut } from 'lucide-react';
+import { LogOut, Wallet } from 'lucide-react';
 
 export function ConnectWallet() {
   const { isSignedIn, userAddress, signIn, signOut } = useAuth();
@@ -9,15 +9,16 @@ export function ConnectWallet() {
   if (isSignedIn && userAddress) {
     return (
       <div className="flex items-center gap-1.5">
-        <span className="font-mono text-xs text-slate-500 bg-slate-100 border border-slate-200 px-2.5 py-1.5 rounded-lg">
-          {userAddress.slice(0, 6)}…{userAddress.slice(-4)}
+        <span className="tabular rounded-md border border-border bg-muted px-2.5 py-1.5 font-mono text-xs text-muted-foreground">
+          {userAddress.slice(0, 5)}…{userAddress.slice(-4)}
         </span>
         <button
           onClick={signOut}
           title="Disconnect wallet"
-          className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-md transition-colors"
+          aria-label="Disconnect wallet"
+          className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
         >
-          <LogOut className="w-4 h-4" />
+          <LogOut className="h-4 w-4" />
         </button>
       </div>
     );
@@ -26,9 +27,11 @@ export function ConnectWallet() {
   return (
     <button
       onClick={signIn}
-      className="px-3.5 py-2 bg-blue-700 hover:bg-blue-800 text-white text-sm font-medium rounded-lg transition-colors"
+      className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 sm:px-3.5"
     >
-      Connect Wallet
+      <Wallet className="h-4 w-4" />
+      <span className="hidden sm:inline">Connect Wallet</span>
+      <span className="sm:hidden">Connect</span>
     </button>
   );
 }
