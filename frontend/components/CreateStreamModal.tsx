@@ -123,13 +123,13 @@ export function CreateStreamModal({ isOpen, onClose, onSuccess }: CreateStreamMo
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm sm:items-center sm:p-4"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm animate-[overlay-in_0.15s_ease-out] sm:items-center sm:p-4"
       onClick={(e) => e.target === e.currentTarget && onClose()}
       role="dialog"
       aria-modal="true"
       aria-label="Create stream"
     >
-      <div className="flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-2xl border border-border bg-card shadow-xl sm:max-w-md sm:rounded-2xl">
+      <div className="flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-2xl border border-border bg-card shadow-xl animate-[dialog-in_0.2s_ease-out] sm:max-w-md sm:rounded-2xl">
         <div className="flex items-start justify-between border-b border-border px-6 py-4">
           <div>
             <h2 className="text-base font-semibold text-foreground">
@@ -162,6 +162,7 @@ export function CreateStreamModal({ isOpen, onClose, onSuccess }: CreateStreamMo
                   className={inputClass}
                   autoComplete="off"
                   spellCheck={false}
+                  autoFocus
                 />
               </Field>
 

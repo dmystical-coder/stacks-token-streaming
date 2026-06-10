@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { ConnectWallet } from '@/components/ConnectWallet';
+import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 import { splitStx } from '@/lib/stream';
 import { getContractUrl } from '@/lib/network';
 import {
@@ -23,12 +24,14 @@ import {
  */
 function LiveStreamDemo() {
   const [now, setNow] = useState(() => Date.now());
+  const reducedMotion = usePrefersReducedMotion();
 
   useEffect(() => {
     let raf = 0;
     let last = 0;
+    const interval = reducedMotion ? 1000 : 60;
     const tick = (t: number) => {
-      if (t - last >= 60) {
+      if (t - last >= interval) {
         setNow(Date.now());
         last = t;
       }
@@ -36,7 +39,7 @@ function LiveStreamDemo() {
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, []);
+  }, [reducedMotion]);
 
   const TOTAL_STX = 1240;
   const CYCLE_MS = 45_000;
@@ -62,8 +65,8 @@ function LiveStreamDemo() {
       </div>
 
       <div className="mb-1 flex items-baseline gap-2">
-        <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Available</span>
-        <span className="inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-primary">
+        <span className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground">Available</span>
+        <span className="inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-[0.08em] text-primary">
           <span className="h-1.5 w-1.5 rounded-full bg-primary animate-live-pulse" />
           streaming
         </span>

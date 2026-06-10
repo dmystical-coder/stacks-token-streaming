@@ -164,10 +164,59 @@ body {
 .animate-live-pulse {
   animation: live-pulse 1.4s ease-in-out infinite;
 }
+
+/* Entrance motion for toasts and the create-stream dialog/sheet. */
+@keyframes slide-in {
+  from {
+    transform: translateX(110%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+@keyframes toast-hide {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Visible keyboard focus for every interactive element, including the
+   hand-rolled buttons/links that don't carry a ring utility. */
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* Honor reduced-motion globally: collapse animations/transitions but keep
+   final states. The JS live counter is gated separately via a hook. */
 @media (prefers-reduced-motion: reduce) {
-  .animate-live-pulse,
-  [class*="flow-sheen"] {
-    animation: none !important;
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
   }
 }
 

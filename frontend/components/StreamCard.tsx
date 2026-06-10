@@ -13,6 +13,7 @@ import {
   Download,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 import {
   type StreamStatusKey,
   computeState,
@@ -52,16 +53,18 @@ export function StreamCard({ streamId, stream, onUpdate }: StreamCardProps) {
     useStreamContract();
   const [loading, setLoading] = useState(false);
   const [now, setNow] = useState(() => Date.now());
+  const reducedMotion = usePrefersReducedMotion();
 
   // Live tick. While the stream is actively flowing we update ~12×/sec so the
   // available figure visibly counts up (rAF pauses when the tab is hidden);
   // otherwise a 1s cadence is enough to catch state transitions and "time left".
+  // Reduced-motion users get the calmer 1s cadence even on live streams.
   useEffect(() => {
     let raf = 0;
     let last = 0;
     const tick = (t: number) => {
       const isLive = getStatus(stream, Date.now() / 1000) === 'active';
-      const interval = isLive ? 80 : 1000;
+      const interval = isLive && !reducedMotion ? 80 : 1000;
       if (t - last >= interval) {
         setNow(Date.now());
         last = t;
@@ -70,7 +73,7 @@ export function StreamCard({ streamId, stream, onUpdate }: StreamCardProps) {
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [stream]);
+  }, [stream, reducedMotion]);
 
   const isSender = userAddress === stream.sender;
   const isRecipient = userAddress === stream.recipient;
@@ -136,11 +139,11 @@ export function StreamCard({ streamId, stream, onUpdate }: StreamCardProps) {
 
       {/* Row 2: live hero figure */}
       <div className="mb-1 flex items-baseline gap-2">
-        <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
+        <span className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
           {heroLabel}
         </span>
         {status === 'active' && (
-          <span className="inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-primary">
+          <span className="inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-[0.08em] text-primary">
             <span className="h-1.5 w-1.5 rounded-full bg-primary animate-live-pulse" />
             streaming
           </span>

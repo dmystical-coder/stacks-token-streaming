@@ -67,7 +67,7 @@ export function WalletView() {
       {/* Balance hero — no card, just a section */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+          <div className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
             Total balance
           </div>
           <div className="mt-1 flex items-baseline gap-1.5">
@@ -122,7 +122,7 @@ export function WalletView() {
         )}
       >
         <div className="bg-card p-4">
-          <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted-foreground">
+          <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
             <ArrowDownLeft className="h-3.5 w-3.5 text-success" />
             Received
           </div>
@@ -131,7 +131,7 @@ export function WalletView() {
           </div>
         </div>
         <div className="bg-card p-4">
-          <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted-foreground">
+          <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
             <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground" />
             Sent
           </div>
@@ -141,7 +141,7 @@ export function WalletView() {
         </div>
         {locked > 0 && (
           <div className="bg-card p-4">
-            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+            <div className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
               Locked
             </div>
             <div className="tabular mt-1 font-mono text-lg font-medium text-foreground">

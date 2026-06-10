@@ -38,12 +38,12 @@ function OverviewStat({
 }) {
   return (
     <div className={`bg-card p-4 ${className ?? ""}`}>
-      <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+      <div className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
         {label}
       </div>
       <div className="mt-1 flex items-baseline gap-1">
         <span
-          className={`tabular font-mono text-xl font-semibold tracking-tight ${
+          className={`tabular font-mono text-lg font-semibold tracking-tight sm:text-xl ${
             accent ? "text-primary" : "text-foreground"
           }`}
         >

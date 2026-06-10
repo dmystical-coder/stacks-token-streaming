@@ -51,7 +51,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             role="alert"
             aria-live="polite"
             className={cn(
-              "group bg-popover text-popover-foreground border shadow-lg rounded-lg p-4 data-[state=open]:animate-slide-in data-[state=closed]:animate-hide flex items-start gap-3 w-[320px]",
+              "group bg-popover text-popover-foreground border shadow-lg rounded-lg p-4 data-[state=open]:animate-[slide-in_0.2s_ease-out] data-[state=closed]:animate-[toast-hide_0.15s_ease-in_forwards] flex items-start gap-3 w-[320px]",
               {
                 "border-primary/50": t.variant === "info",
                 "border-success/50": t.variant === "success",
