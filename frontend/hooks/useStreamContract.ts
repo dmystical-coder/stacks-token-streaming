@@ -52,14 +52,12 @@ export function useStreamContract() {
           toast({
             variant: 'success',
             title: `${label} — submitted`,
-            description: data?.txId
-              ? `Pending confirmation · ${data.txId.slice(0, 8)}…${data.txId.slice(-6)}`
-              : 'Pending on-chain confirmation.',
-            duration: 8000,
+            description: 'Pending on-chain confirmation.',
+            action: data?.txId
+              ? { label: 'View on explorer', href: getTransactionUrl(data.txId) }
+              : undefined,
+            duration: 10000,
           });
-          if (data?.txId) {
-            console.log(`${label}:`, getTransactionUrl(data.txId));
-          }
         },
         onCancel: () => {
           toast({ title: 'Transaction cancelled', variant: 'default' });

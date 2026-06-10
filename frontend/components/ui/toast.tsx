@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import * as ToastPrimitive from "@radix-ui/react-toast";
+import { ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type ToastVariant = "default" | "success" | "error" | "info";
@@ -11,6 +12,8 @@ interface ToastOptions {
   description?: string;
   variant?: ToastVariant;
   duration?: number; // milliseconds
+  /** Optional link rendered as a call-to-action, e.g. a block explorer URL. */
+  action?: { label: string; href: string };
 }
 
 interface InternalToast extends ToastOptions {
@@ -68,6 +71,19 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                 <ToastPrimitive.Description className="text-sm text-muted-foreground mt-1 break-words">
                   {t.description}
                 </ToastPrimitive.Description>
+              )}
+              {t.action && (
+                <ToastPrimitive.Action altText={t.action.label} asChild>
+                  <a
+                    href={t.action.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+                  >
+                    {t.action.label}
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                </ToastPrimitive.Action>
               )}
             </div>
             <ToastPrimitive.Close asChild>
