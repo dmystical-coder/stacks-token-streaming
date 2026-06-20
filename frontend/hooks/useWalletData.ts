@@ -30,6 +30,7 @@ export function useWalletData(address: string | null) {
   const [balance, setBalance] = useState<StxBalance | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchData = useCallback(
     async (opts?: { silent?: boolean }) => {
@@ -39,15 +40,23 @@ export function useWalletData(address: string | null) {
       if (!silent) setLoading(true);
       try {
         const balanceRes = await fetch(`${NETWORK_URL}/extended/v1/address/${address}/balances`);
+        if (!balanceRes.ok) {
+          throw new Error(`Balance request failed with ${balanceRes.status}`);
+        }
         const balanceData = await balanceRes.json();
         setBalance(balanceData.stx);
 
         const txRes = await fetch(`${NETWORK_URL}/extended/v1/address/${address}/transactions?limit=50`);
+        if (!txRes.ok) {
+          throw new Error(`Transaction request failed with ${txRes.status}`);
+        }
         const txData = await txRes.json();
-        setTransactions(txData.results);
+        setTransactions(Array.isArray(txData.results) ? txData.results : []);
+        setError(null);
       } catch (error) {
         // Background polls keep the last good data rather than blanking it.
         console.error('Error fetching wallet data:', error);
+        setError(error instanceof Error ? error.message : 'Unable to refresh wallet data');
       } finally {
         if (!silent) setLoading(false);
       }
@@ -59,6 +68,7 @@ export function useWalletData(address: string | null) {
     if (!address) {
       setBalance(null);
       setTransactions([]);
+      setError(null);
       return;
     }
 
@@ -105,6 +115,7 @@ export function useWalletData(address: string | null) {
     balance,
     transactions,
     loading,
+    error,
     refresh: fetchData,
   };
 }
