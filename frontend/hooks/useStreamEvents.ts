@@ -38,21 +38,15 @@ export function useStreamEvents(address: string | null, onUpdate: () => void) {
         // Subscribe to transactions involving the user's address
         sub = await client.subscribeAddressTransactions(
           address,
-          (event: unknown) => {
-            console.log("Transaction event received:", event);
+          () => {
             // Trigger update on any transaction status change (mempool, included, etc.)
             onUpdate();
           }
         );
-
-        console.log("✓ Connected to Stacks WebSocket for real-time updates");
       } catch (error) {
         // WebSocket connection is optional - app works fine without it
         // Users can manually refresh to see updates
-        console.warn(
-          "WebSocket unavailable - real-time updates disabled. Use refresh button for updates."
-        );
-        console.warn("WebSocket error:", error);
+        console.warn("WebSocket unavailable; realtime updates will fall back to polling.", error);
       }
     };
 
