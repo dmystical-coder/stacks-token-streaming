@@ -146,8 +146,9 @@
         )
         ;; Validations
         (asserts! (not (is-eq recipient tx-sender)) ERR_INVALID_RECIPIENT)
-        (asserts! (> token-amount u0) ERR_INVALID_AMOUNT)
-        (asserts! (> duration u0) ERR_INVALID_DURATION)
+        (asserts! (>= token-amount MIN_AMOUNT) ERR_INVALID_AMOUNT)
+        (asserts! (>= duration MIN_DURATION) ERR_INVALID_DURATION)
+        (asserts! (<= duration MAX_DURATION) ERR_INVALID_DURATION)
         
             ;; Transfer STX from sender to contract (escrow)
         (unwrap! (stx-transfer? token-amount tx-sender (unwrap-panic contract-address)) ERR_TRANSFER_FAILED)

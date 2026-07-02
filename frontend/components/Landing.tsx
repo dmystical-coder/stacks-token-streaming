@@ -23,16 +23,19 @@ import {
  * synthetic stream. Not a screenshot — it's the real UI motion.
  */
 function LiveStreamDemo() {
-  const [now, setNow] = useState(() => Date.now());
+  // Start from a fixed frame so SSR and the first client render agree (no
+  // hydration mismatch); the rAF loop takes over with the real clock on mount.
+  const [now, setNow] = useState(0);
   const reducedMotion = usePrefersReducedMotion();
 
   useEffect(() => {
+    const t0 = Date.now();
     let raf = 0;
     let last = 0;
     const interval = reducedMotion ? 1000 : 60;
     const tick = (t: number) => {
       if (t - last >= interval) {
-        setNow(Date.now());
+        setNow(Date.now() - t0);
         last = t;
       }
       raf = requestAnimationFrame(tick);

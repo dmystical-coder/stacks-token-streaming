@@ -3,6 +3,7 @@ import { Stream } from '@/types/stream';
 import { fetchCallReadOnlyFunction, standardPrincipalCV, uintCV, cvToValue } from '@stacks/transactions';
 import { NETWORK_INSTANCE } from '@/lib/network';
 import { CONTRACT_ADDRESS, CONTRACT_NAME } from '@/lib/stacks';
+import { onRevalidate } from '@/lib/revalidate';
 
 // How often to silently re-read streams from chain so the UI reflects new
 // streams, confirmed withdrawals, and status changes without a manual refresh.
@@ -145,6 +146,12 @@ export function useStreamsFromChain(userAddress: string | null) {
       document.removeEventListener('visibilitychange', onVisibility);
     };
   }, [fetchStreams]);
+
+  // Refetch the instant a tx for this address confirms on-chain.
+  useEffect(
+    () => onRevalidate(() => { fetchStreams({ silent: true }).catch(() => {}); }),
+    [fetchStreams]
+  );
 
   return { streams, loading, error, refresh: fetchStreams };
 }

@@ -525,8 +525,6 @@ describe("Pause and Resume Functionality", () => {
 
 describe("Edge Cases and Boundaries", () => {
   it("should reject amount below minimum (0.001 STX)", () => {
-    // MIN_AMOUNT is 1000, so 999 should fail
-    // But first let's test what actually happens
     const { result } = simnet.callPublicFn(
       "stream-manager",
       "create-stream",
@@ -534,9 +532,7 @@ describe("Edge Cases and Boundaries", () => {
       deployer
     );
 
-    // MIN_AMOUNT validation uses >= so 999 should be rejected
-    // If this fails, the validation logic needs to be checked
-    expect(result).toHaveProperty("type");
+    expect(result).toBeErr(Cl.uint(103)); // ERR_INVALID_AMOUNT
   });
 
   it("should accept minimum amount exactly", () => {
@@ -551,7 +547,6 @@ describe("Edge Cases and Boundaries", () => {
   });
 
   it("should reject duration below minimum (60 seconds)", () => {
-    // MIN_DURATION is 60, so 59 should fail
     const { result } = simnet.callPublicFn(
       "stream-manager",
       "create-stream",
@@ -559,8 +554,7 @@ describe("Edge Cases and Boundaries", () => {
       deployer
     );
 
-    // MIN_DURATION validation uses >= so 59 should be rejected
-    expect(result).toHaveProperty("type");
+    expect(result).toBeErr(Cl.uint(104)); // ERR_INVALID_DURATION
   });
 
   it("should accept maximum duration (1 year exactly)", () => {
@@ -572,6 +566,17 @@ describe("Edge Cases and Boundaries", () => {
     );
 
     expect(result).toBeOk(Cl.uint(1));
+  });
+
+  it("should reject duration above maximum (more than 1 year)", () => {
+    const { result } = simnet.callPublicFn(
+      "stream-manager",
+      "create-stream",
+      [Cl.principal(wallet1), Cl.uint(1000000), Cl.uint(31536001)],
+      deployer
+    );
+
+    expect(result).toBeErr(Cl.uint(104)); // ERR_INVALID_DURATION
   });
 
   it("should handle immediate withdrawal after creation", () => {

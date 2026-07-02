@@ -13,6 +13,7 @@ import { CONTRACT_ADDRESS, CONTRACT_NAME, NETWORK, stxToMicroStx, parseDurationT
 import { getTransactionUrl } from '@/lib/network';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/toast';
+import { useChainEvents } from '@/contexts/ChainEvents';
 
 interface ContractCall {
   functionName: string;
@@ -26,6 +27,7 @@ interface ContractCall {
 export function useStreamContract() {
   const { userAddress } = useAuth();
   const { toast } = useToast();
+  const { watchTx } = useChainEvents();
 
   // Single path for every contract call so submitted / cancelled / failed
   // feedback is consistent. The wallet returns once the tx is broadcast, not
@@ -58,6 +60,9 @@ export function useStreamContract() {
               : undefined,
             duration: 10000,
           });
+          // Track this tx so the socket can fire a "confirmed" toast and
+          // revalidate the UI the moment it's mined.
+          if (data?.txId) watchTx(data.txId, label);
         },
         onCancel: () => {
           toast({ title: 'Transaction cancelled', variant: 'default' });
